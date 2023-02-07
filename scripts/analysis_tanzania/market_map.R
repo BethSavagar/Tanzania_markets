@@ -8,12 +8,20 @@ library(ggplot2)
 # read in tanzania market data
 mrkta_1_tanzania <- read_csv("tanzania_data/mrkta_generalinfo_tanzania.csv")
 
+# LOOKUPS ##
+mrkta_lkpregion <- read_csv("~/Library/CloudStorage/OneDrive-RoyalVeterinaryCollege/PPR Collaborations/Data Bank/ecoppr_data/data_raw/ecopprmarketscsvs/mrkta_lkpregion.csv")
+
 # Is the market name variable unique, does it correspond to market id variable?
 mrkta_1_tanzania %>% distinct(fid.see.mrkta.idtable.) # every entry has unique id
 mrkta_1_tanzania %>% distinct(name.of.market) # 1 entry is a duplicate: Dutwa
 mrkta_1_tanzania %>% group_by(name.of.market) %>% count() %>% view() # identify duplicate market name
 dutwa_mrkt_duplicate <- mrkta_1_tanzania %>% filter(name.of.market == "Dutwa") # check differences between duplicate entries
 
+# Are market name and village the same? 
+mrkta_1_tanzania %>% 
+  select(village, name.of.market) %>%
+  filter(mrkta_1_tanzania$village != mrkta_1_tanzania$name.of.market)
+# market name and village are sometimes different, sometimes typos
 
 ## MAPPING MARKETS ##
 
@@ -52,24 +60,35 @@ ggplot() +
   coord_sf()+
   theme_bw()
 
-# all of 1 market type
+# Descriptive analysis and maps:
+
+# markets by TYPE: 
+mrkta_1_tanzania %>% 
+  group_by(type.of.market.see.mrkta.lkpmrkt.type.) %>% 
+  count() # all markets are type 1
+
+# markets by REGION (colour coordinated)
+
+mrkta_sf <- mrkta_sf %>%
+  left_join(
+  mrkta_lkpregion %>%
+    select(Code,"region.name" = "Description"),
+  by = c(`district.region.see.mrkta.lkpregion.` = "Code")
+  )
+
 ggplot() +
   geom_sf(data = tanzania_shp) +
-  geom_sf(data = mrkta_sf, aes(color = `type.of.market.see.mrkta.lkpmrkt.type.`)) +
+  geom_sf(data = mrkta_sf, aes(color = as.factor(`region.name`))) +
+  labs(col = "region")+
+  # scale_color_brewer(palette = "Set3")+
   coord_sf()+
   theme_bw()
 
-# market == village in most cases
-ggplot() +
-  geom_sf(data = tanzania_shp) +
-  geom_point(data = mrkta_map, aes(x = long, y = lat), fill = village) +
-  coord_sf()+
-  theme_bw()
+# markets by WARD:
+mrkta_1_tanzania %>% 
+  group_by(ward.see.mrkta.lkpward.) %>% 
+  count() %>% filter(n>1) # most wards are unique to 1 market, 3 wards have more than 1 market.
 
-# market coloured by district
-ggplot() +
-  geom_sf(data = tanzania_shp) +
-  geom_point(data = mrkta_map, aes(x = long, y = lat), fill = `district.region.see.mrkta.lkpregion.`) +
-  #geom_sf(data = mrkta_sf, aes(fill = `district.region.see.mrkta.lkpregion.`)) +
-  coord_sf()+
-  theme_bw()
+
+
+

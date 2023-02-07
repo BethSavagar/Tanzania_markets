@@ -1,0 +1,77 @@
+---
+title: "tanzania-markets-descriptive-analysis"
+author: "Beth Savagar"
+date: "2023-02-07"
+output: html_document
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries}
+library(readr)
+library(tidyverse)
+library(sf)
+library(ggplot2)
+
+```
+
+```{r load-data}
+
+# read in tanzania market data
+mrkta <- read_csv("tanzania_data/mrkta_generalinfo_tanzania.csv")
+mrktb <- read_csv("tanzania_data/mrktb_generalinfo_tanzania.csv")
+
+## LOOKUPS ##
+mrkta_lkpregion <- read_csv("~/Library/CloudStorage/OneDrive-RoyalVeterinaryCollege/PPR Collaborations/Data Bank/ecoppr_data/data_raw/ecopprmarketscsvs/mrkta_lkpregion.csv")
+
+```
+
+```{r summaries}
+
+mrkta %>% 
+  colnames()
+
+mrkta_clean <- mrkta %>%
+  select(
+    fid = `fid.see.mrkta.idtable.`,
+    district = `district.region.see.mrkta.lkpregion.`,
+    ward = `ward.see.mrkta.lkpward.`,
+    village,
+    market.name = `name.of.market`,
+    market.type = `type.of.market.see.mrkta.lkpmrkt.type.`,
+    `1.location.sold.from`,
+    `2.location.taken.to.`,
+    `3a.no.sheep.sold.per.day`,
+    `3b.no.goats.sold.per.day`,
+    `4.seasonal.variation.in.trade`,
+    `4.if.yes.describe`
+  ) 
+
+## cleaning 
+  # rename_with(tolower) %>% # all lowercase
+  # rename_with(~gsub("[[:punct:]]", " ", .x)) %>% # replace all punctuation with space " " 
+  # rename_with(~gsub("\\s+", ".", .x)) %>% # replace any space with single "."
+
+mrkta_clean %>%
+  group_by(`3a.no.sheep.sold.per.day`) %>%
+  count()
+
+sales <- mrkta_clean %>%
+  select(fid, sales = `3a.no.sheep.sold.per.day`) %>%
+  mutate(sp = "Sheep") %>%
+  rbind(mrkta_clean %>%
+    select(fid, sales = `3b.no.goats.sold.per.day`) %>%
+  mutate(sp = "Goat"))
+
+sales %>% 
+  group_by(sp) %>%
+  summarise(tot = sum(sales))
+
+ggplot(sales)+
+  geom_histogram(aes(x=sales,col=sp, fill = sp), binwidth = 50, alpha = 0.5, position = position_dodge())+
+  # facet_wrap(~sp)
+  theme_bw()
+
+```

@@ -11,33 +11,34 @@ mrktb_generalinfo <- read_csv("~/OneDrive - Royal Veterinary College/PPR Collabo
 mrktb_lkpcountry <- read_csv("~/OneDrive - Royal Veterinary College/PPR Collaborations/Data Bank/ecoppr_data/data_raw/ecopprmarketscsvs/mrkta_lkpcountry.csv")
 
 ## Clean colnames of mrkta data:
-colnames(mrkta_generalinfo)
+colnames(mrktb_generalinfo)
 
-mrkta_1_clean <- mrkta_generalinfo %>% 
+mrktb_1_clean <- mrktb_generalinfo %>% 
   rename_with(tolower) %>% # all lowercase
   rename_with(~gsub("[[:punct:]]", " ", .x)) %>% # replace all punctuation with space " " 
   rename_with(~gsub("\\s+", ".", .x)) %>% # replace any space with single "."
   # rename specific columns...
   rename(
-    "1.location.sold.from"="1.for.the.sheep.and.goats.being.sold.in.this.market.which.areas.do.they.come.from.",
-    "2.location.taken.to."="2.for.the.sheep.and.goats.that.are.bought.in.this.market.which.places.are.they.taken.to.",
-    "3a.no.sheep.sold.per.day"="3a.approximately.how.many.sheep.are.sold.each.market.day.",
-    "3b.no.goats.sold.per.day"="3b.approximately.how.many.goats.are.sold.each.market.day.",
-    "4.seasonal.variation.in.trade"="4.is.there.any.variation.in.the.numbers.or.types.of.sheep.and.goats.being.bought.and.sold.at.different.times.seasons.of.the.year.",
-    "4.if.yes.describe"="if.yes.describe.",
-    "5.if.yes.describe"="if.yes.can.you.describe.how.this.is.done."
+    "region.see.mrkta.lkpregion." ="région.province.commune.see.mrkta.lkpregion.",
+    "department.ward.see.mrkta.lkpward." ="département.cercle.see.mrkta.lkpward.",
+    "immature.sheep.less.1."="immature.sheep.1.year.",
+    "adult.sheep.more.1."="adult.sheep.1.year.",
+    "immature.goats.less.1."="immature.goats.1.year.",
+    "adult.goats.more.1."="adult.goats.1.year.",
+    "3.sick.animals.obs"="3.did.you.observe.any.sick.animals.in.the.market.give.details.of.numbers.and.clinical.signs.",
+    "4.if.yes.number.sick.by.symptom"="4.if.yes.give.the.number.of.animals.affected.by.each.clinical.syndrome.sign"
   )
 
 # Filter data to Tanzania
 
 # Tanzania country code from lookup
-tanzania_id <- mrkta_lkpcountry %>%
+tanzania_id <- mrktb_lkpcountry %>%
   filter(Description == "Tanzania") %>%
   pull(Code)
 
 # filter mrkta_1 to tanzania only
-mrkta_1_tanzania <- mrkta_1_clean %>% 
+mrktb_1_tanzania <- mrktb_1_clean %>% 
   filter(country.see.mrkta.lkpcountry. == tanzania_id)
 
-# write.csv(mrkta_1_tanzania, "tanzania_data/mrkta_generalinfo_tanzania.csv", row.names = F)
+write.csv(mrktb_1_tanzania, "tanzania_data/mrktb_generalinfo_tanzania.csv", row.names = F)
 
