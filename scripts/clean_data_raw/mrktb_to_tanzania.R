@@ -1,14 +1,14 @@
-# Script to clean and subset mrkta data from EcoPPR dataframes to only Tanzania data 
+# Script to clean and subset mrktb data from EcoPPR dataframes to only Tanzania data 
 # data sourced from /Users/bethsavagar/Library/CloudStorage/OneDrive-RoyalVeterinaryCollege/PPR Collaborations/Data Bank/EcoPPR-1/ecopprmarketscsvs
 
 
 library(tidyverse)
 
 # key informant interview data 1
-mrkta_generalinfo <- read_csv("~/OneDrive - Royal Veterinary College/PPR Collaborations/Data Bank/ecoppr_data/data_raw/ecopprmarketscsvs/mrkta_generalinfo.csv")
+mrktb_generalinfo <- read_csv("~/OneDrive - Royal Veterinary College/PPR Collaborations/Data Bank/ecoppr_data/data_raw/ecopprmarketscsvs/mrktb_generalinfo.csv")
 
 # country lookup
-mrkta_lkpcountry <- read_csv("~/OneDrive - Royal Veterinary College/PPR Collaborations/Data Bank/ecoppr_data/data_raw/ecopprmarketscsvs/mrkta_lkpcountry.csv")
+mrktb_lkpcountry <- read_csv("~/OneDrive - Royal Veterinary College/PPR Collaborations/Data Bank/ecoppr_data/data_raw/ecopprmarketscsvs/mrkta_lkpcountry.csv")
 
 ## Clean colnames of mrkta data:
 colnames(mrkta_generalinfo)

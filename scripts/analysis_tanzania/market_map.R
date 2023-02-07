@@ -1,8 +1,12 @@
 # Tanzania market survey A - preliminary analysis (02.02.22)
 
+library(readr)
 library(tidyverse)
 library(sf)
 library(ggplot2)
+
+# read in tanzania market data
+mrkta_1_tanzania <- read_csv("tanzania_data/mrkta_generalinfo_tanzania.csv")
 
 # Is the market name variable unique, does it correspond to market id variable?
 mrkta_1_tanzania %>% distinct(fid.see.mrkta.idtable.) # every entry has unique id
@@ -42,23 +46,30 @@ mrkta_map <- mrkta_1_tanzania %>%
 
 mrkta_sf <- st_as_sf(mrkta_map, coords = c("long","lat"),  crs = 4326)
 
-
-
 ggplot() +
   geom_sf(data = tanzania_shp) +
   geom_sf(data = mrkta_sf) +
   coord_sf()+
   theme_bw()
 
+# all of 1 market type
 ggplot() +
   geom_sf(data = tanzania_shp) +
-  geom_sf(data = mrkta_sf, fill = `type.of.market.see.mrkta.lkpmrkt.type.`) +
+  geom_sf(data = mrkta_sf, aes(color = `type.of.market.see.mrkta.lkpmrkt.type.`)) +
   coord_sf()+
   theme_bw()
 
-
+# market == village in most cases
 ggplot() +
   geom_sf(data = tanzania_shp) +
   geom_point(data = mrkta_map, aes(x = long, y = lat), fill = village) +
+  coord_sf()+
+  theme_bw()
+
+# market coloured by district
+ggplot() +
+  geom_sf(data = tanzania_shp) +
+  geom_point(data = mrkta_map, aes(x = long, y = lat), fill = `district.region.see.mrkta.lkpregion.`) +
+  #geom_sf(data = mrkta_sf, aes(fill = `district.region.see.mrkta.lkpregion.`)) +
   coord_sf()+
   theme_bw()
