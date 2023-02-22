@@ -14,14 +14,15 @@ library(readr)
 library(tidyverse)
 library(sf)
 library(ggplot2)
+library(here)
 
 ```
 
 ```{r load-data}
 
 # read in tanzania market data
-mrkta <- read_csv("tanzania_data/mrkta_generalinfo_tanzania.csv")
-mrktb <- read_csv("tanzania_data/mrktb_generalinfo_tanzania.csv")
+mrkta <- read_csv(here("tanzania_data/mrkta_generalinfo_tanzania.csv"))
+mrktb <- read_csv(here("tanzania_data/mrktb_generalinfo_tanzania.csv"))
 
 ## LOOKUPS ##
 mrkta_lkpregion <- read_csv("~/Library/CloudStorage/OneDrive-RoyalVeterinaryCollege/PPR Collaborations/Data Bank/ecoppr_data/data_raw/ecopprmarketscsvs/mrkta_lkpregion.csv")
