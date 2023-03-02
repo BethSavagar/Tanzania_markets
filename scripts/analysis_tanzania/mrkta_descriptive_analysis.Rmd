@@ -196,8 +196,20 @@ districts_surveyed_shp <- tanzania_shp %>%
                                        ifelse(NewDist20 == "Ulanga DC", "Ulanga", 
                                               ifelse(NewDist20 == "Bahi DC", "Bahi", NA)))))))
 
+# map with regions surveyed highlighted
 ggplot()+
   geom_sf(data=districts_surveyed_shp, aes(fill = surveyed))+
+  geom_sf(data = mrkta_sf, aes(color = as.factor(`district.region.name`))) +
+  # scale_color_brewer(palette = "Set3")+
+  coord_sf()+
+  theme_bw()
+
+
+#map with regions surveyed highlighted and points of market locations superimposed on top
+ggplot()+
+  geom_sf(data=districts_surveyed_shp, aes(fill = surveyed))+
+  geom_sf(data = mrkta_sf, aes(color = as.factor(`district.region.name`))) +
+  # scale_color_brewer(palette = "Set3")+
   coord_sf()+
   theme_bw()
 
