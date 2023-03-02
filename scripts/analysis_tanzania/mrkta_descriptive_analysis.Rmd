@@ -25,7 +25,8 @@ mrkta <- read_csv(here("tanzania_data/mrkta_generalinfo_tanzania.csv"))
 mrktb <- read_csv(here("tanzania_data/mrktb_generalinfo_tanzania.csv"))
 
 ## LOOKUPS ##
-mrkta_lkpregion <- read_csv("~/Library/CloudStorage/OneDrive-RoyalVeterinaryCollege/PPR Collaborations/Data Bank/ecoppr_data/data_raw/ecopprmarketscsvs/mrkta_lkpregion.csv")
+mrkta_lkpregion <- read_csv(here("ecopprmarketscsvs/mrkta_lkpregion.csv"))
+mrkta_lkpward <- read_csv(here("ecopprmarketscsvs/mrkta_lkpward.csv"))
 
 ```
 
@@ -34,27 +35,178 @@ mrkta_lkpregion <- read_csv("~/Library/CloudStorage/OneDrive-RoyalVeterinaryColl
 mrkta %>% 
   colnames()
 
+## cleaning of colnames
+  # rename_with(tolower) %>% # all lowercase
+  # rename_with(~gsub("[[:punct:]]", " ", .x)) %>% # replace all punctuation with space " " 
+  # rename_with(~gsub("\\s+", ".", .x)) %>% # replace any space with single "."
+
 mrkta_clean <- mrkta %>%
   select(
     fid = `fid.see.mrkta.idtable.`,
-    district = `district.region.see.mrkta.lkpregion.`,
-    ward = `ward.see.mrkta.lkpward.`,
+    date,
+    country = `country.see.mrkta.lkpcountry.`,
+    district.region.code = `district.region.see.mrkta.lkpregion.`,
+    ward.code = `ward.see.mrkta.lkpward.`,
     village,
     market.name = `name.of.market`,
     market.type = `type.of.market.see.mrkta.lkpmrkt.type.`,
+    name.of.respondent,
     `1.location.sold.from`,
     `2.location.taken.to.`,
     `3a.no.sheep.sold.per.day`,
     `3b.no.goats.sold.per.day`,
     `4.seasonal.variation.in.trade`,
-    `4.if.yes.describe`
-  ) 
+    `4.if.yes.describe`,
+    `gps.coordinates.of.the.market`,
+    `unique.row.identifier.uuid.` 
+  ) %>% 
+  left_join(mrkta_lkpward %>% select(ward.code = "Code", ward.name = "Description"),
+            by = c("ward.code")) %>%
+  left_join(mrkta_lkpregion %>% select(Code,"district.region.name" = "Description"),
+            by = c(`district.region.code` = "Code")
+  )
 
-## cleaning 
-  # rename_with(tolower) %>% # all lowercase
-  # rename_with(~gsub("[[:punct:]]", " ", .x)) %>% # replace all punctuation with space " " 
-  # rename_with(~gsub("\\s+", ".", .x)) %>% # replace any space with single "."
+# Is the market name variable unique, does it correspond to market id variable?
+mrkta_clean %>% distinct(fid) # every entry has unique id
+mrkta_clean %>% distinct(market.name) # 1 entry is a duplicate: Dutwa
+mrkta_clean %>% group_by(market.name) %>% count() %>% view() # identify duplicate markets
+# 2 markets appeared twice: Dutwa and Majimoto
+duplicate.markets <- mrkta_clean %>% group_by(market.name) %>% count() %>% filter(n>1) %>% pull(market.name)
+duplicate.entries <- mrkta_clean %>% 
+  filter(market.name %in% duplicate.names)
+# The market names Dutwa and Majimoto each appear twice.
+# The market Dutwa appears to be an error in the market.name field. Whilst the market name is the same, village, ward name & code, district code and name of respondent is different for the two entries. Suggest correcting the market name to dutwa."village": dutwa.Kakola and dutwa.Igaganulwa
+# The market Majimoto appears to be a duplicate (2 surveys conducted at the same market). The market name, village, ward name &is  code, district code and name of respondent are the same for both entries. The question answers are different.
 
+mrkta_clean <- mrkta_clean %>%
+  mutate(market.name.corrected = ifelse(market.name == "Dutwa" & village == "Kakola", "dutwa.kakola", market.name),
+         market.name.corrected = ifelse(market.name == "Dutwa" & village == "Igaganulwa", "dutwa.igaganulwa", market.name))
+
+
+# Are market name and village the same? 
+mrkta_clean %>% 
+  select(village, market.name) %>%
+  filter(mrkta_clean$village != mrkta_clean$market.name) %>% View()
+# market name and village are sometimes different, sometimes typos
+
+# markets by TYPE: 
+mrkta_clean %>% 
+  group_by(market.type) %>% 
+  count() # all markets are type 1
+
+# markets by WARD:
+# Do any wards have more than 1 market?
+duplicate.wards <- mrkta_clean %>% 
+  group_by(ward.code) %>% 
+  count() %>% 
+  filter(n>1) %>%
+  pull(ward.code) # most wards are unique to 1 market, 3 wards have more than 1 market.
+
+mrkta_clean %>% filter(ward.code %in% duplicate.wards) %>% select(district.region.code, ward.code, ward.name, village, market.name)
+```
+
+```{r market_map}
+
+## MAPPING MARKETS ##
+
+# Load Tanzania Shapefile:
+tanzania_shp <- st_read(here("shapefiles/Districts and TC as 2020.shp"))
+
+
+# plot tanzania districts
+ggplot()+
+  geom_sf(data=tanzania_shp)+
+  coord_sf()+
+  theme_bw()
+
+# Convert mrkt_a to sf for mapping
+
+# GPS coordinates of market are in degrees decimal minutes - DDM (i think)
+
+mrkta_map <- mrkta_clean %>%
+  select(fid,
+         country,
+         district.region.code,
+         district.region.name,
+         ward.code,
+         ward.name,
+         village,
+         market.name,
+         market.name.corrected,
+         market.type,
+         gps.coordinates.of.the.market,                                 
+         unique.row.identifier.uuid.
+         ) %>% 
+  mutate(lat = str_split(`gps.coordinates.of.the.market`, "\\s", simplify = TRUE)[, 1],
+         long = str_split(`gps.coordinates.of.the.market`, "\\s", simplify = TRUE)[, 2])
+
+mrkta_sf <- st_as_sf(mrkta_map, coords = c("long","lat"),  crs = 4326)
+
+ggplot() +
+  geom_sf(data = tanzania_shp) +
+  geom_sf(data = mrkta_sf) +
+  coord_sf()+
+  theme_bw()
+
+
+# markets by REGION (colour coordinated)
+
+mrkta_sf <- mrkta_sf %>%
+  left_join(
+  mrkta_lkpregion %>%
+    select(Code,"region.name" = "Description"),
+  by = c(`district` = "Code")
+  )
+
+ggplot() +
+  geom_sf(data = tanzania_shp) +
+  geom_sf(data = mrkta_sf, aes(color = as.factor(`district.region.name`))) +
+  labs(col = "District (Region)")+
+  # scale_color_brewer(palette = "Set3")+
+  coord_sf()+
+  theme_bw()
+
+
+## Check the duplicate market locations
+
+duplicates_map <- duplicate.entries %>% 
+  mutate(lat = str_split(`gps.coordinates.of.the.market`, "\\s", simplify = TRUE)[, 1],
+         long = str_split(`gps.coordinates.of.the.market`, "\\s", simplify = TRUE)[, 2])
+
+duplicates_sf <- st_as_sf(duplicates_map, coords = c("long","lat"),  crs = 4326)
+
+ggplot() +
+  geom_sf(data = tanzania_shp, fill = NA) +
+  geom_sf(data = duplicates_sf, aes(shape = as.factor(`district.region.name`), col = as.factor(`market.name`)), size = 3) +
+  labs(col = "Market Name",
+       shape = "Region")+
+  # scale_color_brewer(palette = "Set3")+
+  coord_sf()+
+  theme_bw()
+
+
+# highlight regions surveyed
+
+districts_surveyed_shp <- tanzania_shp %>%
+  mutate(surveyed = 
+           ifelse(NewDist20 == "Mpimbwe DC", "Mpimbwe", 
+                  ifelse(NewDist20 == "Bariadi DC", "Bariadi", 
+                         ifelse(NewDist20 == "Mbarali DC", "Mbarali",
+                                ifelse(NewDist20 == "Masasi DC", "Masasi",
+                                       ifelse(NewDist20 == "Ulanga DC", "Ulanga", 
+                                              ifelse(NewDist20 == "Bahi DC", "Bahi", NA)))))))
+
+ggplot()+
+  geom_sf(data=districts_surveyed_shp, aes(fill = surveyed))+
+  coord_sf()+
+  theme_bw()
+
+
+```
+
+```{r sales-per-day}
+
+# sheep sales per day
 mrkta_clean %>%
   group_by(`3a.no.sheep.sold.per.day`) %>%
   count()
@@ -66,12 +218,21 @@ sales <- mrkta_clean %>%
     select(fid, sales = `3b.no.goats.sold.per.day`) %>%
   mutate(sp = "Goat"))
 
+# total reported sheep and goat sales per day of market
 sales %>% 
   group_by(sp) %>%
-  summarise(tot = sum(sales))
+  summarise(tot = sum(sales)) %>%
+  rename(Species = sp,
+         Total_Sales = tot)
 
 ggplot(sales)+
-  geom_histogram(aes(x=sales,col=sp, fill = sp), binwidth = 50, alpha = 0.5, position = position_dodge())+
+  geom_histogram(aes(x=sales,col=sp, fill = sp), binwidth = 25, alpha = 0.5, position = position_dodge(), boundary = 0)+
+  scale_x_continuous(breaks = seq(0,400,25), labels = seq(0,400,25))+
+  labs(x = "Sales per Day", 
+       y = "Count",
+       fill = "Species", 
+       col = "Species",
+       main = "Sheep and Goat Sales per Market")+
   # facet_wrap(~sp)
   theme_bw()
 
