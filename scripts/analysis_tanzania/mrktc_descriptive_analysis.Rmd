@@ -110,6 +110,7 @@ mrktc_details %>%
   ungroup() %>%
   slice_head(n=20) %>%
   kable()
+
 ```
 
 
@@ -123,7 +124,7 @@ mrktc_mrkttype <- mrktc_clean %>%
   left_join(lkpmrkt_type %>% select(Code, "market.type" = Description),
             by = c("market.type.code" = "Code"))
 
-mrktc_mrkttype %>% group_by(market.type) %>% count() %>% View()
+mrktc_mrkttype %>% group_by(market.type) %>% count()
 
 ggplot(mrktc_mrkttype, aes(market.type))+
   geom_bar(stat = "count")
