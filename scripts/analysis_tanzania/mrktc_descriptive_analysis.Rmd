@@ -1,0 +1,157 @@
+---
+title: "mrktc_descriptive_analysis"
+author: "Beth Savagar"
+date: "2023-03-15"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r library, include = F}
+library(readr)
+library(tidyverse)
+library(here)
+library(knitr)
+```
+
+```{r dataload, include = F}
+
+
+# load tanzania data for market c general info and activities surveys
+mrktc_generalinfo <- read_csv(here("tanzania_data/mrktc_generalinfo_tanzania.csv"))
+lkpmrkt_type <- read_csv(here("ecopprmarketscsvs/mrktc_lkpmrkt_type.csv"))
+
+
+```
+
+## Market C General Information
+
+```{r mrktc_data, include = F}
+# mrktc analysis -- 
+
+colnames(mrktc_generalinfo)
+
+mrktc_clean <- mrktc_generalinfo %>%
+  select(
+    fid = `fid.see.mrktc.idtable.`,
+    country = `country.see.mrkta.lkpcountry.`,
+    district.region.code = `district.region.see.mrkta.lkpregion.`,
+    ward.code = `ward.see.mrkta.lkpward.`,
+    village,
+    market.name = `name.of.market`,
+    market.type = `type.of.market.see.mrktc.lkpmrkt.type.`,
+    `respondent.role`,
+    other.market.visited= `13.have.you.visited.other.markets.to.sell.or.buy.sheep.and.goats.in.the.past.one.month.`,
+  number.markets.visited =`number.of.other.markets.you.have.visited.to.sell.or.buy.sheep.and.goats.in.the.past.one.month`,
+  trader = `researcher.is.this.person.a.trader.meaning.they.buy.and.sell.animals.as.a.business.`,
+  trade.pattern = `14.what.is.your.usual.pattern.of.trading.sheep.and.or.goats.`,
+    `gps.coordinates.of.the.market`,
+    `unique.row.identifier.uuid.`
+    ) %>%
+  # clean text variables:
+  mutate(
+    "market.name" = tolower(`market.name`), # lowercase
+    "market.name" = gsub("[[:punct:]]", " ", `market.name`), # remove punctuation
+    "market.name" = trimws(`market.name`), #trim leading and trailing spaces
+    "market.name" = gsub("\\s+", ".", `market.name`)# replace 1+ spaces with "."
+  )  %>% 
+  mutate(
+    "village" = tolower(`village`), # lowercase
+    "village" = gsub("[[:punct:]]", " ", `village`), # remove punctuation
+    "village" = trimws(`village`),
+    "village" = gsub("\\s+", ".", `village`)
+  )
+  
+```
+
+
+### Number of markets, and number of surveys per market
+
+- According to field design there should be a minimum of 20 surveys conducted at each market.
+- By looking at the number of surveys at each market can see that ~
+```{r survey_per_mrkt, echo = F}
+# Market Details: name, location
+
+mrktc_details <- mrktc_clean %>%
+  select(fid, country, district.region.code,ward.code,village,market.name,market.type)
+
+survey_count <- mrktc_details %>% group_by(market.name) %>% count()
+kable(survey_count %>% arrange(market.name))
+# number of markets with <20 surveys conducted 
+# survey_count %>% filter(n<20) %>% View()
+# survey_count %>% filter(n<20) %>% nrow()
+
+ggplot(survey_count, aes(x=n))+
+  geom_histogram(binwidth = 5, alpha = 0.5, boundary = 0)+
+  theme_bw()
+```
+
+### Surveys per market + village
+
+- For each unique village-market name combination how many surveys were conducted:
+```{r mrkt_per_village}
+
+## Unique Villages: 
+# mrktc_details %>% group_by(village) %>% count() %>% arrange(village) %>% kable()
+
+# for each unique village-market name combination how many surveys were conducted:
+
+mrktc_details %>% 
+  group_by(village,market.name) %>% 
+  count() %>% 
+  # View() %>% 
+  # group_by(village) %>% 
+  # count() %>% 
+  arrange(village) %>%
+  ungroup() %>%
+  slice_head(n=20) %>%
+  kable()
+```
+
+
+```{r mrkt_type, echo = F}
+
+## TYPE OF MARKET ##
+
+mrktc_mrkttype <- mrktc_clean %>%
+  select(market.name, 
+         "market.type.code" = market.type) %>%
+  left_join(lkpmrkt_type %>% select(Code, "market.type" = Description),
+            by = c("market.type.code" = "Code"))
+
+mrktc_mrkttype %>% group_by(market.type) %>% count() %>% View()
+
+ggplot(mrktc_mrkttype, aes(market.type))+
+  geom_bar(stat = "count")
+```
+
+
+## MARKET INTERACTIONS
+- have you visited other markets in last 1 month?
+
+```{r mrkt_visits, echo = F}
+
+## MARKET INTERACTIONS ##
+# have you visited other markets in last 1 month?
+
+mrktc_mrktvisits <- mrktc_clean %>%
+  select("other.market.visited", "number.markets.visited","trader") %>%
+  mutate(number.markets.visited = ifelse(`other.market.visited`==0, 0,`number.markets.visited`),
+         # trader = ifelse(trader==1,"yes", ifelse(trader==0,"no",NA))
+         )
+
+ggplot(mrktc_mrktvisits, aes(factor(number.markets.visited), group = trader, fill= factor(trader)))+
+  geom_bar(stat="count", position = "dodge")+
+  labs(x="number of other markets visited",
+       fill = "trader")+
+  theme_bw(base_size = 14)
+
+# Usual pattern of trading: 
+# mrktc_clean %>% select(`trade.pattern`) %>% na.omit() %>% View()
+
+
+```
