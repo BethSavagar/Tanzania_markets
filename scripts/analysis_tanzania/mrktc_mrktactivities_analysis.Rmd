@@ -2,7 +2,9 @@
 title: "mrktc_mrktactivities_analysis"
 author: "Beth Savagar"
 date: "2023-03-15"
-output: html_document
+output:
+  pdf_document: default
+  html_document: default
 ---
 
 ```{r setup, include=FALSE}
@@ -20,16 +22,17 @@ library(knitr)
 
 
 # load tanzania data for market c general info and activities surveys
-mrktc_mrktactivities <- read_csv("tanzania_data/mrktc_mrktactivities_tanzania.csv") # load tanzania market activities df
+mrktc_mrktactivities <- read_csv(here("tanzania_data/mrktc_mrktactivities_tanzania.csv")) # load tanzania market activities df
 mrktc_lkpmrkt_actvty <- read_csv(here("ecopprmarketscsvs/mrktc_lkpmrkt_actvty.csv")) # load lookup for activities
-sell_placetype_lkp <- read_csv("ecopprmarketscsvs/mrktc_lkpsell_placetype.csv") # load lookup for sell.placetype
-placetype_lkp <- read_csv("ecopprmarketscsvs/mrktc_lkpplacetype.csv") # load lookup for sell.placetype
+sell_placetype_lkp <- read_csv(here("ecopprmarketscsvs/mrktc_lkpsell_placetype.csv")) # load lookup for sell.placetype
+placetype_lkp <- read_csv(here("ecopprmarketscsvs/mrktc_lkpplacetype.csv")) # load lookup for sell.placetype
   
 
 
 ```
 
-```{r clean, echo = F}
+```{r clean, include = F}
+
 colnames(mrktc_mrktactivities)
 
 mrktactivities_clean <- mrktc_mrktactivities %>%
@@ -39,7 +42,7 @@ mrktactivities_clean <- mrktc_mrktactivities %>%
     "unique.row.id",
     "1.activities.at.market" = "1.what.are.the.activities.that.you.are.doing.in.this.market.today.",
     "1.specify.activities.at.market"="if.other.specify.5",
-    "2.sell.placetype"= "type.of.place.see.mrktc.lkpsell.placetype.",
+    "2.sell.placetype.code"= "type.of.place.see.mrktc.lkpsell.placetype.",
     "2.specify.sell.placetype"="if.other.specify",
     "2.sell.place.name" = "name.of.place.8",
     "2.sell.place.ward" = "ward.9",
@@ -52,7 +55,7 @@ mrktactivities_clean <- mrktc_mrktactivities %>%
     # "5.sell.species.most"="if.yes.out.of.all.the.species.that.you.sell.which.species.do.you.sell.the.most.",
     # "5.specify.sell.species.most"="if.other.specify.17",
     "6.buy.transport" = "will.you.transport.the.sheep.goats.you.are.buying.today.",
-    "6.buy.placetype"="type.of.place.see.mrktc.lkpplacetype.",
+    "6.buy.placetype.code"="type.of.place.see.mrktc.lkpplacetype.",
     "6.specify.buy.placetype"="if.other.specify.20",
     "6.buy.place.name" ="name.of.place.21",
     "6.buy.place.ward"="ward.22",
@@ -72,21 +75,32 @@ mrktactivities_clean <- mrktc_mrktactivities %>%
     "12.buy.sell.per.month" = "12.how.many.times.in.a.month.do.you.buy.or.sell.sheep.and.or.goats.in.this.market.",
     "unique.row.identifier.uuid."    
   )
+```
 
+
+## Data Overview
+
+- What fields exist in the (cleaned) market activities dataset:
+
+```{r overview, echo = F}
 colnames(mrktactivities_clean)
 
 total_obs <- nrow(mrktactivities_clean)
 
 ```
+- Total observations: `r total_obs`
 
-```{r activity_at_mrkt, echo = F}
+### 1. What activities take place in the market?
+
+- *This needs re viewing for the definition of what each activity is*
+```{r activity_at_mrkt, include = F}
 
 # what activities take place at market?
 mrktactivities_clean %>% distinct(`1.activities.at.market`) %>% pull()
 multiple.activities <- mrktactivities_clean %>% distinct(`1.activities.at.market`) %>% filter(!`1.activities.at.market` %in% c("1","2","3","4","-66")) %>% pull() %>% sort()
 
 
-activities.recode <- strsplit(multiple_activities, " ") %>%
+activities.recode <- strsplit(multiple.activities, " ") %>%
   lapply(.,sort) %>%
   sapply(., function(x)
     paste(x, collapse = '.')
@@ -99,136 +113,231 @@ mrktactivities_clean <- mrktactivities_clean %>%
   left_join(activities_recode %>% 
               rename(`1.activities.at.market` = multiple.activities,
                      `1.activities.recode` = activities.recode)) %>%
-  mutate(`1.activities.recode` = ifelse(is.na(`1.activities.recode`), `1.activities.at.market`,`1.activities.recode`)) %>%
-  select(`1.activities.at.market`, `1.activities.recode`)
+  mutate(`1.activities.recode` = ifelse(is.na(`1.activities.recode`), `1.activities.at.market`,`1.activities.recode`)) # %>%
+  # select(`1.activities.at.market`, `1.activities.recode`)
 
 mrktactivities_clean %>% distinct(`1.activities.recode`) %>% pull()
+
+mrktactivities_clean <- mrktactivities_clean %>% 
+  mutate("seller" = ifelse(grepl("1", `1.activities.recode`), 1, 0),
+         "middleman" = ifelse(grepl("2", `1.activities.recode`), 1, 0),
+         "trader" = ifelse(grepl("3", `1.activities.recode`), 1, 0),
+         "buyer" = ifelse(grepl("4", `1.activities.recode`), 1, 0),
+         "other" = ifelse(grepl("-66", `1.activities.recode`), 1, 0)
+         )
+```
+
+```{r activitiesplot, echo = F}
+
+
+activities_df <- mrktactivities_clean %>% 
+  select(`fid.see.mrktc.generalinfo.`,seller,middleman,trader,buyer,other) %>%
+  gather(., "activity", "count", -`fid.see.mrktc.generalinfo.`)
+
+activities_count <- activities_df %>%
+  mutate(activity = ordered(activity, levels = c("seller", "middleman","trader","buyer","other"))) %>%
+  group_by(activity) %>%
+  summarise(tot = sum(count))
+
+ggplot(activities_count, aes(x=activity, y = tot))+
+  geom_col()+
+  labs(x = "Market Activity", 
+       y = "Count")+
+  theme_bw()
 
 ```
 
 
-```{r}
+## 2. How many times buy/sell at this market per month
+
+```{r buysell, echo = F}
 
 # Numbers buying and selling per month
 
 # How many times in a month do you buy/sell small ruminants in this market?
-buysell_mnth <-  mrktc_mrktactivities %>%
-  rename(buysell_mnth = `12.how.many.times.in.a.month.do.you.buy.or.sell.sheep.and.or.goats.in.this.market.`) %>%
-  group_by(buysell_mnth) %>%
+buysell_mnth <-  mrktactivities_clean %>%
+  group_by(`12.buy.sell.per.month`) %>%
   count()
 
-ggplot(buysell_mnth, aes(x=factor(buysell_mnth), y=n))+
+ggplot(buysell_mnth, aes(x=factor(`12.buy.sell.per.month`), y=n))+
   geom_col()+
   labs(x="How many times buy/sell at this market per month",
        y="count")+
+  annotate("label", x = 1, y = 1750, label = paste0("total=",total_obs))+
   theme_bw(base_size = 14)
+```
 
+### For those which answered NA, what activity are they doing at the market?
+
+```{r NAbuysell, echo = F}
+
+# of the NAs what activities were they doing?
+
+buysell_NA <- mrktactivities_clean %>% 
+  filter(is.na(`12.buy.sell.per.month`)) %>% 
+  select(`fid.see.mrktc.generalinfo.`,seller,middleman,trader,buyer,other) %>%
+  gather(., "activity", "count", -`fid.see.mrktc.generalinfo.`)
+
+buysell_NA_actvty <- buysell_NA %>%
+  mutate(activity = ordered(activity, levels = c("seller", "middleman","trader","buyer","other"))) %>%
+  group_by(activity) %>%
+  summarise(tot = sum(count))
+
+ggplot(buysell_NA_actvty, aes(x=activity, y = tot))+
+  geom_col()+
+  labs(x = "Market Activity for NA buy/sell per month", 
+       y = "Count")+
+  theme_bw()
+```
+
+## 3. SELLING
+
+### For sheep & goats brought to market to be sold, what type of place do they come from?
+
+```{r sell, echo = F}
 ## SELLING ##
 
 # select only selling variables from mrktactivities dataframe
 
-selling <- mrktc_mrktactivities %>% 
-  select("fid.see.mrktc.generalinfo.",
-         "unique.row.id.see.mrktc.generalinfo.",
-         "unique.row.id",
-         "sell.placetype.code"="type.of.place.see.mrktc.lkpsell.placetype.",
-         "sell.placetype.specify"="if.other.specify",
-         "sell.name.place"="name.of.place.8",
-         "sell.ward"="ward.9",
-         "sell.district"="district.10")
+selling <- mrktactivities_clean %>%
+  filter(seller=="1") %>%
+  select(`fid.see.mrktc.generalinfo.`,
+         `unique.row.id.see.mrktc.generalinfo.`,
+         `unique.row.id`,
+         `2.sell.placetype.code`,
+         `2.specify.sell.placetype`,
+         `2.sell.place.name`,
+         `2.sell.place.ward`,
+         `2.sell.place.district`,
+         `4.sell.transport`,
+         `4.specify.sell.transport`)
 
 # join sell.placetype.lookup for placetype variable
 selling <- selling %>% 
-  left_join(sell_placetype_lkp %>% select("Code","sell.placetype" = "Description"),
-             by = c("sell.placetype.code" = "Code"))
+  left_join(sell_placetype_lkp %>% select("Code","2.sell.placetype.name" = "Description"),
+             by = c("2.sell.placetype.code" = "Code"))
 
-ggplot(selling, aes(`sell.placetype`))+
+ggplot(selling, aes(`2.sell.placetype.name`))+
   geom_bar()+
   geom_text(stat='count', aes(label=..count..), vjust=-1)+
   annotate("label", x = 1, y = 1750, label = paste0("total=",total_obs))+
   labs(y="count")+
   theme_bw(base_size=14)
+```
 
+### What are the "other" placetypes that animals are brought from?
+
+```{r sell_other, echo = F}
 # SELLING: "OTHER" PLACETYPE >>> 
-selling %>% group_by(sell.placetype.specify) %>% count() %>% View()
+# selling %>% distinct(`2.specify.sell.placetype`) %>% kable()
 
 other_placetype_recode <- selling %>% 
-  select(sell.placetype.specify) %>%
-  mutate("sell.placetype.specify.english" = 
-           recode(sell.placetype.specify, 
-                  `Amekuja kununua` = "buyer",
-                  `Anakuja kununua` = "buyer",
+  select(`2.specify.sell.placetype`) %>%
+  mutate("2.specify.sell.placetype.english" = 
+           recode(`2.specify.sell.placetype`, 
+                  # `Amekuja kununua` = "buyer",
+                  # `Anakuja kununua` = "buyer",
                   `Ananunua mifugo kwa wafugaji njiani kabla ya kuwaleta mnadani` = "He buys livestock from breeders on the way before bringing them to the market",
-                  `Hajaleta mbuzi wa kuuza Ila amekuja kununua mbuzi.` = "He has not brought goats to sell, but he has come to buy goats.",
-                  `Hapa mnadani` = "Here in the market", 
-                  `Hapahapa mnadani` = "There is no market", 
-                  `Kwa watu binafsi` = "For individuals",
-                  `Kwasasa nimekuja kununua` = "buyer",
-                  `Mimi ni mfanyabiashara nakuja tu kununua na kusafirisha` = "I am a businessman, I just come to buy and deliver",
-                  `Mnadani Gongoni` = "In the market",
+                  # `Hajaleta mbuzi wa kuuza Ila amekuja kununua mbuzi.` = "He has not brought goats to sell, but he has come to buy goats.",
+                  # `Hapa mnadani` = "Here in the market", 
+                  # `Hapahapa mnadani` = "There is no market", 
+                  # `Kwa watu binafsi` = "For individuals",
+                  # `Kwasasa nimekuja kununua` = "buyer",
+                  # `Mimi ni mfanyabiashara nakuja tu kununua na kusafirisha` = "I am a businessman, I just come to buy and deliver",
+                  # `Mnadani Gongoni` = "In the market",
                   `Mtaa wa pambazuko ulioko Ifakara mjini`="Pambazuko Street in Ifakara City",
-                  `Nauza mbuzi wa hapahapa`="I'm selling a local goat",
-                  `Nawakuta mnadani`="I find them in the market",
-                  `Nawatoa m8nada tofauti tofauti` = "different auctions?", 
-                  `Ndio nimekuja kununua na kuuza` = "Yes I have come to buy and sell", 
-                  `Nimekuja kunuju hapa` = "I came here to visit you", 
-                  `Nimekuja kununua nakupeleka kwa walanguzi au wauza supu` = "I have come to buy and I am taking you to traffickers or soup sellers", 
-                  `Nimewanunua hapa mnadani` = "bought at market", 
-                  `Nimewanunua hapahapa mnadani` = "bought at market", 
+                  # `Nauza mbuzi wa hapahapa`="I'm selling a local goat",
+                  # `Nawakuta mnadani`="I find them in the market",
+                  # `Nawatoa m8nada tofauti tofauti` = "different auctions?", 
+                  # `Ndio nimekuja kununua na kuuza` = "Yes I have come to buy and sell", 
+                  # `Nimekuja kunuju hapa` = "I came here to visit you", 
+                  # `Nimekuja kununua nakupeleka kwa walanguzi au wauza supu` = "I have come to buy and I am taking you to traffickers or soup sellers", 
+                  # `Nimewanunua hapa mnadani` = "bought at market", 
+                  # `Nimewanunua hapahapa mnadani` = "bought at market", 
+                  #`Yeye ni Mswagaji` = "he is a vegetarian"
                   `Njiani ( kijiji cha mziha wakati anaelekea mnada wa mziha)` = "Mziha village on the way to Mziha market", 
-                  `Pikipiki` = "Motorcycle", 
-                  `Yeye ni Mswagaji` = "he is a vegetarian")) %>% 
-           group_by(sell.placetype.specify.english) %>% 
-           count()
+                  `Pikipiki` = "Motorcycle" 
+                  )
+         ) %>% 
+           distinct(`2.specify.sell.placetype`,`2.specify.sell.placetype.english`)
 
+kable(other_placetype_recode)
 
+# selling %>% group_by(`2.sell.place.name`) %>% count() %>% View()
+# 
+# selling %>% group_by(`2.sell.place.ward`) %>% count() %>% View()
+# 
+# selling %>% group_by(`2.sell.place.district`) %>% count() %>% View()
 
-selling %>% group_by(name.of.place) %>% count() %>% View()
+```
 
-selling %>% group_by(ward) %>% count() %>% View()
+## 4. BUYING
 
-selling %>% group_by(district) %>% count() %>% View()
+### For sheep & goats bought at the market, what type of place are they taken to?
 
+```{r buying, echo = F}
+## BUYING ##
 
-## SELLING ##
+# select only buying variables from mrktactivities dataframe
 
-
-buying <- mrktc_mrktactivities %>% 
-  select("fid.see.mrktc.generalinfo.",
-         "unique.row.id.see.mrktc.generalinfo.",
-         "unique.row.id",
-         "buy.placetype.code"="type.of.place.see.mrktc.lkpplacetype.",
-         "buy.placetype.specify"="if.other.specify.20",
-         "buy.place.name"="name.of.place.21",
-         "buy.ward"="ward.22",
-         "buy.district"="district.23" 
+buying <- mrktactivities_clean %>%
+  filter(buyer=="1") %>%
+  select(`fid.see.mrktc.generalinfo.`,
+         `unique.row.id.see.mrktc.generalinfo.`,
+         `unique.row.id`,
+         `6.buy.transport`,
+         `6.buy.placetype.code`,
+         `6.specify.buy.placetype`,
+         `6.buy.place.name`,
+         `6.buy.place.ward`,
+         `6.buy.place.district`,
+         `8.buy.transport.type`,
+         `8.specify.buy.transport.type`,
          )
+
 
 # join buy.placetype.lookup for placetype variable
 buying <- buying %>% 
-  left_join(placetype_lkp %>% select("Code","buy.placetype" = "Description"),
-             by = c("buy.placetype.code" = "Code"))
+  left_join(placetype_lkp %>% select("Code","6.buy.placetype.name" = "Description"),
+             by = c("6.buy.placetype.code" = "Code"))
 
-ggplot(buying, aes(`buy.placetype`))+
+ggplot(buying, aes(`6.buy.placetype.name`))+
   geom_bar()+
   geom_text(stat='count', aes(label=..count..), vjust=-1)+
   annotate("label", x = 1, y = 1750, label = paste0("total=",total_obs))+
   labs(y="count")+
   theme_bw(base_size=14)
+```
 
+### What are the "other" placetypes that animals are brought from?
 
-# BUYING "OTHER" PLACETYPE >>> 
-#
-#
-#
-#
-#####
+```{r buy_other, echo = F}
+# BUYING: "OTHER" PLACETYPE >>> 
+# buying %>% distinct(`6.specify.buy.placetype`) %>% kable()
 
-buying %>% group_by(buy.place.name) %>% count() %>% View()
+buying_other_placetype_recode <- buying %>% 
+  select(`6.specify.buy.placetype`) %>%
+  mutate("6.specify.buy.placetype.english" = 
+           recode(`6.specify.buy.placetype`, 
+                  `Nanunua kwaajili ya kuchinja hapa mnadani` = "I buy it for slaughtering here at the market",
+                  `Machinjioni` = "Slaughterhouse",
+                  `Nyumbani na minadani` = "At home and auctions",
+                  `Vijiwe vya kuchinjia` = "Slaughter stones",
+                  `Kuchinja` = "Slaughter",
+                  `Machinjioni kibaha` = "Slaughterhouse",
+                  `Kondoo nitampeleka kijijini ila mbuzi nitauza mnada hapa` = "I will take the sheep to the village, but I will sell the goat at auction here."
+                  )
+         ) %>% 
+           distinct(`6.specify.buy.placetype`,`6.specify.buy.placetype.english`)
 
-buying %>% group_by(buy.ward) %>% count() %>% View()
+kable(buying_other_placetype_recode)
 
-buying %>% group_by(buy.district) %>% count() %>% View()
+# 
+# buying %>% group_by(`6.buy.place.name`) %>% count() %>% View()
+# 
+# buying %>% group_by(`6.buy.place.ward`) %>% count() %>% View()
+# 
+# buying %>% group_by(`6.buy.place.district`) %>% count() %>% View()
 
 
 ```
