@@ -1,5 +1,5 @@
 ---
-title: "tanzania-markets-descriptive-analysis"
+title: "Tanzania Market Survey A: Descriptive Analysis"
 author: "Beth Savagar"
 date: "2023-02-07"
 output:
@@ -19,6 +19,7 @@ library(ggplot2)
 library(here)
 library(knitr)
 library(ggpubr)
+library(RColorBrewer)
 
 ```
 
@@ -33,7 +34,16 @@ mrkta_lkpregion <- read_csv(here("ecopprmarketscsvs/mrkta_lkpregion.csv"))
 mrkta_lkpward <- read_csv(here("ecopprmarketscsvs/mrkta_lkpward.csv"))
 
 ```
-### Market Survey A Data
+
+## Market Survey A Data: First Look
+
+- Market survey A is the key informant interview
+- Key informant interview with the market manager or other key person who is knowledgeable about the market, focusing on the general characteristics of the market. (1 survey per market)
+- At each market, the field team will identify and arrange to meet with the market manager/person in-charge to introduce the project and obtain permission to collect data, and then conduct a short interview
+<br>
+
+### 1) What fields are contained in the survey data?
+<br>
 ```{r clean, echo = F, warning = F}
 
 # mrkta %>% colnames()
@@ -73,7 +83,8 @@ mrkta_clean <- mrkta %>%
 colnames(mrkta_clean) %>% kable()
 ```
 
-### Is the market name variable unique, does it correspond to market id variable?
+### 2) Is the market name variable unique, does it correspond to market id variable?
+- Are there any rows which have the same market name?
 
 ```{r market-names, include = F}
 # Is the market name variable unique, does it correspond to market id variable?
@@ -90,19 +101,19 @@ mrkta_clean <- mrkta_clean %>%
          market.name.corrected = ifelse(market.name == "Dutwa" & village == "Igaganulwa", "dutwa.igaganulwa", market.name))
 ```
 ```{r, echo = F}
-kable(duplicate.entries %>% select(fid, date, district.region.code, district.region.name, ward.code, ward.name, village, market.name, name.of.respondent))
+kable(duplicate.entries %>% select(date, "district.code"=district.region.code, "district.name"=district.region.name, ward.code, ward.name, village, market.name, name.of.respondent))
 ```
 
 -  The market names Dutwa and Majimoto each appear twice.
 -  The market **Dutwa** appears to be an error in the market.name field. Whilst the market name is the same, village, ward name & code, district code and name of respondent is different for the two entries. Suggest correcting the market name to dutwa."village": dutwa.Kakola and dutwa.Igaganulwa
 -  The market **Majimoto** appears to be a duplicate (2 surveys conducted at the same market). The market name, village, ward name &is  code, district code and name of respondent are the same for both entries. The question answers are different.
-- Add variable "market.name.corrected" with dutwa.kakola and dutwa.igaganulwa as entries
+- *Add variable "market.name.corrected" with dutwa.kakola and dutwa.igaganulwa as entries*
 - See market map below with duplicate locations pinpointed.
 
 
-### Is the market name the same as the village name?
+### 3) Is the market name the same as the village name?
 - Below is a list of markets which have names distinct to the village name (all other entries have the same name)
-- market name and village are sometimes different, sometimes typos:
+- In some cases the market & village names are different due to typos, in others they appear genuinely distinct
 
 
 ```{r market_village, echo = F, warning = F}
@@ -116,7 +127,7 @@ mrkt_village_distinct <- mrkta_clean %>%
 knitr::kable(mrkt_village_distinct %>% arrange(village))
 ```
 
-### Do any wards have more than 1 market?
+### 4) Do any wards have more than 1 market?
 - Below is a list of wards which have more than one market: Mtandi, Majimoto, Mnavira
 - Majitmoto is the repeat market name entry from above
 ```{r market_ward, echo = F, warning = F}
@@ -131,7 +142,13 @@ duplicate.wards <- mrkta_clean %>%
 mrkta_clean %>% filter(ward.code %in% duplicate.wards) %>% select(district.region.code, ward.code, ward.name, village, market.name) %>% arrange(ward.name) %>% kable()
 ```
 
-### What is the type of the markets?
+### 5) What is the type of the markets?
+- Market type: 
+  - *Primary market* - located close to the place of production or rearing of small ruminants, usually located within villages or small towns.
+  - *Secondary market* - usually found in suburbs, animals are transported some distance from their place of production/rearing to the market.
+  - *Tertiary or final consumption market* - generally located in towns or populated areas to supply urban populations, animals are transported quite a long-distance from their place of production/rearing.
+
+- All markets are given as Type 1: Primary Markets (note the buyer-seller questionnaire is not consistent with this)
 ```{r market.type, echo = F}
 
 #####################
@@ -193,6 +210,46 @@ ggplot() +
 ```
 
 ### Map of markets colour coded by region
+- 6 regions were targeted for surveys
+- Regions were targeted purposively as locations where surveys had not previously taken place (not well studied)
+
+Regions Surveyed: 
+- NB: this table includes regions where market surveys took place which were not stated as target regions
+- Target regions are 1-6
+```{r targ_region, echo = F, warning = F}
+
+regions <- data.frame(
+  "region" = c(
+    "KATAVI",
+    "SIMIYU",
+    "MBEYA",
+    "MTWARA",
+    "MOROGOR0",
+    "DODOMA",
+    "MWANZA",
+    "NJOMBE",
+    "RUKWA",
+    "SONGWE",
+    "IRINGA"
+  ),
+  "Location (study site)" = c(
+    "West. Mpimbwe district in this region",
+    "North. Bariadi is the regional capital.",
+    "West/South-West. Mbarali District in this region.",
+    "South (South-East). Masasi district in this region",
+    "Centre (Centre-East). Ulanga district in this region.",
+    "Centre (Centre-East). Bahi district in this region.",
+    "North",
+    "South (South-West).",
+    "East (South-East).",
+    "East (South-East).",
+    "Centre"
+  )
+)
+
+regions %>% knitr::kable()
+```
+
 
 ```{r tanzania_map, echo = F, warning = F}
 
@@ -208,10 +265,14 @@ mrktmap_colour <- ggplot() +
 mrktmap_colour
 ```
 
-### Regions targeted for market survey
+### Tanzania Map with *targeted* regions highlighted
+- Map of tanzania highlighting regions which were targeted for surveys
 
 ```{r region_map_colour, echo = F}
 
+map_col <- brewer.pal(9,"Set1")
+map_col[10] <- "#000000"
+map_col[11] <- "#FF69B4"
 # highlight regions surveyed
 
 districts_surveyed_shp <- tanzania_shp %>%
@@ -231,12 +292,14 @@ region_map <- ggplot()+
   geom_sf(data= tanzania_shp)+
   geom_sf(data= districts_surveyed_shp, aes(fill = surveyed))+
   # labs(title = "Regions targeted for survey")+
-  # scale_color_brewer(palette = "Set3")+
+  scale_color_manual(palette = map_col)+
   coord_sf()+
   theme_bw()
 
 
 # map with regions surveyed highlighted and points of market locations superimposed on top
+mrkta_sf <- mrkta_sf %>% 
+  mutate("target" = ifelse(`district.region.name` %in% c("KATAVI", "SIMIYU", "MBEYA", "MTWARA", "MOROGOR0", "DODOMA"), "target","no_target"))
 
 mrktregion_map <- ggplot()+
   geom_sf(data = tanzania_shp)+
@@ -247,6 +310,16 @@ mrktregion_map <- ggplot()+
   labs(col = "District/Region", fill = "Target District")+
   theme_bw()+
   theme(legend.direction = "vertical", legend.box = "horizontal")
+# 
+# mrktregion_map <- ggplot()+
+#   geom_sf(data = tanzania_shp)+
+#   geom_sf(data = districts_surveyed_shp, aes(fill = surveyed), alpha = 0.5)+
+#   geom_sf(data = mrkta_sf, aes(color = as.factor(`district.region.name`)))+
+#   scale_color_manual(palette = map_col)+
+#   coord_sf()+
+#   labs(col = "District/Region", fill = "Target District")+
+#   theme_bw()+
+#   theme(legend.direction = "vertical", legend.box = "horizontal")
 ```
 ```{r region_map, echo = F}
 region_map
@@ -254,6 +327,7 @@ region_map
 \newpage
 
 ### Regions targeted for market survey + market locations
+- Map of Tanzania highlighting regions targeted for survey, and market survey locations (colour coded by region)
 
 ```{r mrktregion_map, echo = F}
 mrktregion_map
@@ -263,6 +337,8 @@ mrktregion_map
 ### Map of location of duplicate markets
 
 - For markets identified as duplicates verify whether they are the same or different locations 
+- Majimoto market surveys spatially close together (consistent with being 1 market)
+- Dutwa market surveys spaced further apart (consistent with being 2 distinct markets)
 
 ```{r duplicates_map, echo = F}
 ## Check the duplicate market locations
@@ -289,8 +365,10 @@ duplicates_map
 
 
 ### Sheep and Goat sales per day
+- The total number of sheep and goats sold in total across all markets
+- More goats sold:
 
-```{r sales-per-day, echo = F}
+```{r tot_sales, echo = F}
 
 # sheep sales per day
 # mrkta_clean %>%
@@ -312,7 +390,11 @@ tot.sales <- sales %>%
          Total_Sales = tot)
 
 kable(tot.sales)
+```
 
+### Reported total sales of sheep and goats per day at surveyed markets
+<br>
+```{r sales_per_day, echo = F, fig.width = 4, fig.height = 4}
 sales_per_day <- ggplot(sales)+
   geom_histogram(aes(x=sales,col=sp, fill = sp), binwidth = 25, alpha = 0.5, position = position_dodge(), boundary = 0)+
   scale_x_continuous(breaks = seq(0,400,25), labels = seq(0,400,25))+
@@ -327,8 +409,13 @@ sales_per_day <- ggplot(sales)+
 sales_per_day
 
 ```
+<br>
+
+*Small Ruminant Sales interpretation*
+- ....
 
 ### Is there seasonal variation in trade?
+
 ```{r seasonal_trade, echo = F}
 
 mrkta_clean %>% 
@@ -345,7 +432,7 @@ mrkta_clean %>% select(`4.seasonal.variation.in.trade`, `4.if.yes.describe`) %>%
 ```
 
 
-```{r buysell_location, include = F}
+```{r buysell_location, include = F, eval = F}
 colnames(mrkta_clean)
 
 buysell_locations <- mrkta_clean %>%

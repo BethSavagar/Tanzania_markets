@@ -72,7 +72,10 @@ mrktc_clean <- mrktc_generalinfo %>%
 ### Number of markets, and number of surveys per market
 
 - According to field design there should be a minimum of 20 surveys conducted at each market.
-- By looking at the number of surveys at each market can see that ~
+- By looking at the number of surveys at each market can see that a number of markets report only 1 survey
+- These could be markets that already exist in the database but which are missed due to typos/naming errors?
+- The below is just the first 20 rows of a dataframe counting surveys per market:
+
 ```{r survey_per_mrkt, echo = F}
 # Market Details: name, location
 
@@ -80,7 +83,7 @@ mrktc_details <- mrktc_clean %>%
   select(fid, country, district.region.code,ward.code,village,market.name,market.type)
 
 survey_count <- mrktc_details %>% group_by(market.name) %>% count()
-kable(survey_count %>% arrange(market.name))
+kable(survey_count %>% arrange(market.name) %>% head(n=20))
 # number of markets with <20 surveys conducted 
 # survey_count %>% filter(n<20) %>% View()
 # survey_count %>% filter(n<20) %>% nrow()
@@ -91,9 +94,10 @@ ggplot(survey_count, aes(x=n))+
 ```
 
 ### Surveys per market + village
-
 - For each unique village-market name combination how many surveys were conducted:
-```{r mrkt_per_village}
+- The below is an excert of the first 20 rows of a dataframe listing every unique market-village combination and the number of surveys conducted
+
+```{r mrkt_per_village, echo = F, warning = F}
 
 ## Unique Villages: 
 # mrktc_details %>% group_by(village) %>% count() %>% arrange(village) %>% kable()
@@ -113,8 +117,9 @@ mrktc_details %>%
 
 ```
 
+### What is the market type (according to buyer/sellers?)
 
-```{r mrkt_type, echo = F}
+```{r mrkt_type, echo = F, warning = F}
 
 ## TYPE OF MARKET ##
 
@@ -132,7 +137,7 @@ ggplot(mrktc_mrkttype, aes(market.type))+
 
 
 ## MARKET INTERACTIONS
-- have you visited other markets in last 1 month?
+- The number of other markets visited in the past 1 month, grouped by trader. 
 
 ```{r mrkt_visits, echo = F}
 
