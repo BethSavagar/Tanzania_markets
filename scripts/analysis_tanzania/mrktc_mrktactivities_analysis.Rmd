@@ -16,6 +16,7 @@ library(readr)
 library(tidyverse)
 library(here)
 library(knitr)
+library(ggpubr)
 ```
 
 ```{r dataload, include = F}
@@ -148,7 +149,7 @@ ggplot(activities_count, aes(x=activity, y = tot))+
 ```
 
 
-## 2. How many times buy/sell at this market per month
+## 2. How many times in a month do you buy or sell sheep or goats in this market?
 
 ```{r buysell, echo = F}
 
@@ -156,15 +157,21 @@ ggplot(activities_count, aes(x=activity, y = tot))+
 
 # How many times in a month do you buy/sell small ruminants in this market?
 buysell_mnth <-  mrktactivities_clean %>%
-  group_by(`12.buy.sell.per.month`) %>%
-  count()
+  group_by(trader, `12.buy.sell.per.month`) %>%
+  count() %>%
+  mutate(prop = n/3310) %>% 
+  filter(!`12.buy.sell.per.month` %in% c(5000,10000,20000,230000))
 
-ggplot(buysell_mnth, aes(x=factor(`12.buy.sell.per.month`), y=n))+
-  geom_col()+
+ggplot(buysell_mnth, aes(x=factor(`12.buy.sell.per.month`), y=n, group = trader, fill = as.factor(trader)))+
+  geom_col(aes(fill = as.factor(trader)), position = "dodge")+
   labs(x="How many times buy/sell at this market per month",
-       y="count")+
-  annotate("label", x = 1, y = 1750, label = paste0("total=",total_obs))+
-  theme_bw(base_size = 14)
+       y="count",
+       fill = "Trader")+
+  scale_fill_discrete(labels = c("N","Y"))+
+  annotate("label", x = 3, y = 1500, label = paste0("total=",total_obs))+
+  theme_bw(base_size = 14) # +
+  # theme(axis.text.x = element_text(angle = -20, hjust = 0, vjust = 1))
+
 ```
 
 ### For those which answered NA, what activity are they doing at the market?
@@ -215,14 +222,108 @@ selling <- mrktactivities_clean %>%
 # join sell.placetype.lookup for placetype variable
 selling <- selling %>% 
   left_join(sell_placetype_lkp %>% select("Code","2.sell.placetype.name" = "Description"),
-             by = c("2.sell.placetype.code" = "Code"))
+             by = c("2.sell.placetype.code" = "Code"))%>% 
+  mutate(`2.sell.placetype.name` = ifelse(`2.sell.placetype.name`=="Other (give details)", "Other", `2.sell.placetype.name`))
 
-ggplot(selling, aes(`2.sell.placetype.name`))+
+sellers <- ggplot(selling, aes(`2.sell.placetype.name`))+
   geom_bar()+
   geom_text(stat='count', aes(label=..count..), vjust=-1)+
-  annotate("label", x = 1, y = 1750, label = paste0("total=",total_obs))+
-  labs(y="count")+
+  annotate("label", x = 1, y = 1500, label = paste0("total=",nrow(selling)))+
+  labs(title = "Seller",y="Count")+
   theme_bw(base_size=14)
+
+sellers
+
+
+### 
+trading <- mrktactivities_clean %>%
+  filter(trader=="1") %>%
+  select(`fid.see.mrktc.generalinfo.`,
+         `unique.row.id.see.mrktc.generalinfo.`,
+         `unique.row.id`,
+         `2.sell.placetype.code`,
+         `2.specify.sell.placetype`,
+         `2.sell.place.name`,
+         `2.sell.place.ward`,
+         `2.sell.place.district`,
+         `4.sell.transport`,
+         `4.specify.sell.transport`)
+
+# join sell.placetype.lookup for placetype variable
+trading <- trading %>% 
+  left_join(sell_placetype_lkp %>% select("Code","2.sell.placetype.name" = "Description"),
+             by = c("2.sell.placetype.code" = "Code"))%>% 
+  mutate(`2.sell.placetype.name` = ifelse(`2.sell.placetype.name`=="Other (give details)", "Other", `2.sell.placetype.name`))
+
+traders <- ggplot(trading, aes(`2.sell.placetype.name`))+
+  geom_bar()+
+  geom_text(stat='count', aes(label=..count..), vjust=-1)+
+  annotate("label", x = 1, y = 1500, label = paste0("total=",nrow(trading)))+
+  labs(title = "Trader",y="Count")+
+  theme_bw(base_size=14)
+
+traders
+
+###
+
+middle <- mrktactivities_clean %>%
+  filter(middleman =="1") %>%
+  select(`fid.see.mrktc.generalinfo.`,
+         `unique.row.id.see.mrktc.generalinfo.`,
+         `unique.row.id`,
+         `2.sell.placetype.code`,
+         `2.specify.sell.placetype`,
+         `2.sell.place.name`,
+         `2.sell.place.ward`,
+         `2.sell.place.district`,
+         `4.sell.transport`,
+         `4.specify.sell.transport`)
+
+# join sell.placetype.lookup for placetype variable
+middle <- middle %>% 
+  left_join(sell_placetype_lkp %>% select("Code","2.sell.placetype.name" = "Description"),
+             by = c("2.sell.placetype.code" = "Code"))%>% 
+  mutate(`2.sell.placetype.name` = ifelse(`2.sell.placetype.name`=="Other (give details)", "Other", `2.sell.placetype.name`))
+
+middlers <- ggplot(middle, aes(`2.sell.placetype.name`))+
+  geom_bar()+
+  geom_text(stat='count', aes(label=..count..), vjust=-1)+
+  annotate("label", x = 1, y = 1500, label = paste0("total=",nrow(middle)))+
+  labs(title = "Middlemen",y="Count")+
+  theme_bw(base_size=14)
+
+middlers
+
+### 
+buyer <- mrktactivities_clean %>%
+  filter(buyer =="1") %>%
+  select(`fid.see.mrktc.generalinfo.`,
+         `unique.row.id.see.mrktc.generalinfo.`,
+         `unique.row.id`,
+         `2.sell.placetype.code`,
+         `2.specify.sell.placetype`,
+         `2.sell.place.name`,
+         `2.sell.place.ward`,
+         `2.sell.place.district`,
+         `4.sell.transport`,
+         `4.specify.sell.transport`)
+
+# join sell.placetype.lookup for placetype variable
+buyer <- buyer %>% 
+  left_join(sell_placetype_lkp %>% select("Code","2.sell.placetype.name" = "Description"),
+             by = c("2.sell.placetype.code" = "Code")) %>% 
+  mutate(`2.sell.placetype.name` = ifelse(`2.sell.placetype.name`=="Other (give details)", "Other", `2.sell.placetype.name`))
+
+buyers <- ggplot(buyer, aes(`2.sell.placetype.name`))+
+  geom_bar()+
+  geom_text(stat='count', aes(label=..count..), vjust=-1)+
+  annotate("label", x = 1, y = 1500, label = paste0("total=",nrow(buyer)))+
+  labs(title = "Buyer",y="Count")+
+  theme_bw(base_size=14)
+
+buyers
+
+ggarrange(sellers, traders, middlers, buyers, ncol = 2, nrow = 2)
 ```
 
 ### What are the "other" placetypes that animals are brought from?
