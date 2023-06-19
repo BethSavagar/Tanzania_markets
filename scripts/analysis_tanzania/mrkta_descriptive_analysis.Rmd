@@ -38,6 +38,9 @@ mrkta_lkpward <- read_csv(here("ecopprmarketscsvs/mrkta_lkpward.csv"))
 ## Market Survey A Data: First Look
 
 - Market survey A is the key informant interview
+
+*From the EcoPPR Field Guide:*
+
 - Key informant interview with the market manager or other key person who is knowledgeable about the market, focusing on the general characteristics of the market. (1 survey per market)
 - At each market, the field team will identify and arrange to meet with the market manager/person in-charge to introduce the project and obtain permission to collect data, and then conduct a short interview
 <br>
@@ -79,6 +82,22 @@ mrkta_clean <- mrkta %>%
             by = c(`district.region.code` = "Code")
   )
 
+mrkta_clean <- 
+  mrkta_clean %>%
+  mutate(
+    "market.name" = tolower(`market.name`), # lowercase
+    "market.name" = gsub("[[:punct:]]", " ", `market.name`), # remove punctuation
+    "market.name" = trimws(`market.name`), #trim leading and trailing spaces
+    "market.name" = gsub("\\s+", ".", `market.name`)# replace 1+ spaces with "."
+  )  %>% 
+  mutate(
+    "village" = tolower(`village`), # lowercase
+    "village" = gsub("[[:punct:]]", " ", `village`), # remove punctuation
+    "village" = trimws(`village`),
+    "village" = gsub("\\s+", ".", `village`)
+  )
+  
+
 # head(mrkta_clean, n = 1) %>% kable()
 colnames(mrkta_clean) %>% kable()
 ```
@@ -89,6 +108,38 @@ colnames(mrkta_clean) %>% kable()
 num_mrkt <- nrow(mrkta_clean)
 num_mrkt
 ```
+- How many surveys were completed in each **region**?
+  - NB: first 6 regions were those that were targeted...
+  - *Why is the number of surveys sp uneven?*
+
+```{r mrkt_region, echo = F, warning = F}
+
+mrktregion_count <- mrkta_clean %>% group_by(district.region.name) %>% count() %>% 
+  mutate("target" = ifelse(`district.region.name` %in% c("KATAVI", "SIMIYU", "MBEYA", "MTWARA", "MOROGORO", "DODOMA"), "target","no_target")) %>%
+  mutate(target = ordered(target, levels = c("target", "no_target"))) %>%
+  arrange(target)
+
+mrktregion_count %>% 
+  select(district.region.name, target, n) %>% 
+  kable()
+
+ggplot(mrktregion_count, aes(x = district.region.name, y=n))+
+  geom_bar(stat = "identity", 
+           aes(fill = target,
+               #color = target,
+               ), alpha = 0.75)+
+  #scale_color_brewer(palette = "Set1", direction = -1)+
+  scale_fill_brewer(palette = "Set1", direction = -1)+
+  labs(x="Region", y = "Number of Surveys", fill = "Target")+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = -45, vjust=0, hjust=0))
+
+
+
+```
+<br>
+
+
 
 ### 3) Is the market name variable unique, does it correspond to market id variable?
 - Are there any duplicated market names in the data?
@@ -104,8 +155,8 @@ duplicate.entries <- mrkta_clean %>%
   filter(market.name %in% duplicate.markets)
 
 mrkta_clean <- mrkta_clean %>%
-  mutate(market.name.corrected = ifelse(market.name == "Dutwa" & village == "Kakola", "dutwa.kakola", market.name),
-         market.name.corrected = ifelse(market.name == "Dutwa" & village == "Igaganulwa", "dutwa.igaganulwa", market.name))
+  mutate(market.name.corrected = ifelse(market.name == "dutwa" & village == "kakola", "dutwa.kakola", 
+                                        ifelse(market.name == "dutwa" & village == "igaganulwa", "dutwa.igaganulwa", market.name))) 
 ```
 ```{r, echo = F}
 kable(duplicate.entries %>% select(date, "district.code"=district.region.code, "district.name"=district.region.name, ward.code, ward.name, village, market.name, name.of.respondent))
@@ -113,7 +164,7 @@ kable(duplicate.entries %>% select(date, "district.code"=district.region.code, "
 
 - Most of the `r num_mrkt` markets are unique... 
 - The market names Dutwa and Majimoto each appear twice.
-- The market **Dutwa** appears to be an error in the market.name field. Whilst the market name is the same, village, ward name & code, district code and name of respondent is different for the two entries. Suggest correcting the market name to dutwa."village": dutwa.Kakola and dutwa.Igaganulwa
+- The market **Dutwa** appears to be an error in the market.name field. Whilst the market name is the same, village, ward name & code, district code and name of respondent is different for the two entries. Suggest correcting the market name to `dutwa.village`: `dutwa.Kakola` and `dutwa.Igaganulwa`
 - The market **Majimoto** appears to be a duplicate (2 surveys conducted at the same market). The market name, village, ward name &is  code, district code and name of respondent are the same for both entries. The question answers are different.
 - *Add variable "market.name.corrected" with dutwa.kakola and dutwa.igaganulwa as entries*
 - See market map below with duplicate locations pinpointed.
@@ -134,6 +185,21 @@ mrkt_village_distinct <- mrkta_clean %>%
 
 # market name and village are sometimes different, sometimes typos
 knitr::kable(mrkt_village_distinct %>% arrange(village))
+
+
+
+## SAVE CSVs of CLEAN MARKET & VILLAGE NAMES - for crossreferencing. 
+
+mrkta_mrktname_clean <- mrkta_clean %>% distinct(market.name.corrected)
+mrkta_vilname_clean <- mrkta_clean %>% distinct(village)
+vilmrktname <- mrkta_clean %>% 
+  distinct(village, market.name.corrected) %>% 
+  mutate(vilmrktname = str_c(village, market.name.corrected, sep="_"))
+# 
+# write.csv(mrkta_mrktname_clean, "mrkta_mrktname_clean.csv", row.names = F)
+# write.csv(mrkta_vilname_clean, "mrkta_vilname_clean.csv", row.names = F)
+# write.csv(vilmrktname, "mrkta_vilmrktname_clean.csv", row.names = F)
+
 
 ```
 
@@ -248,6 +314,19 @@ regions <- data.frame(
     "SONGWE",
     "IRINGA"
   ),
+  "target" = c(
+    "target",
+    "target",
+    "target",
+    "target",
+    "target",
+    "target",
+    "non_target",
+     "non_target",
+     "non_target",
+     "non_target",
+     "non_target"
+    ),
   "Location (study site)" = c(
     "West. Mpimbwe district in this region",
     "North. Bariadi is the regional capital.",
@@ -319,14 +398,14 @@ mrkta_sf <- mrkta_sf %>%
 
 mrktregion_map <- ggplot()+
   geom_sf(data = tanzania_shp, fill = NA)+
-  geom_sf(data = districts_surveyed_shp, aes(fill = surveyed), alpha = 0.25)+
+  geom_sf(data = districts_surveyed_shp, aes(fill = surveyed), alpha = 0.4)+
   geom_sf(data = mrkta_sf, aes(color = as.factor(`district.region.name`), shape = target))+
   scale_shape_manual(values=c(7,16))+
   # scale_color_brewer(palette = "Set3")+
   coord_sf()+
   labs(col = "District/Region", fill = "Target District")+
-  theme(legend.position = "bottom", legend.direction = "vertical", legend.box = "horizontal", )+
-  theme_bw()
+  theme_bw()+
+  theme(legend.position = "right", legend.direction = "vertical", legend.box = "horizontal", )
 # 
 # mrktregion_map <- ggplot()+
 #   geom_sf(data = tanzania_shp)+
@@ -394,12 +473,12 @@ duplicates_map
 
 sales <- mrkta_clean %>%
   mutate(`3c.all.sold.per.day` = `3a.no.sheep.sold.per.day`+`3b.no.goats.sold.per.day`) %>%
-  select(fid, sales = `3c.all.sold.per.day`) %>% mutate(sp = "All") %>%
+  select(fid, district.region.code, district.region.name, sales = `3c.all.sold.per.day`) %>% mutate(sp = "All") %>%
   rbind(mrkta_clean %>%
-  select(fid, sales = `3a.no.sheep.sold.per.day`) %>%
+  select(fid, district.region.code, district.region.name, sales = `3a.no.sheep.sold.per.day`) %>%
   mutate(sp = "Sheep")) %>%
   rbind(mrkta_clean %>%
-    select(fid, sales = `3b.no.goats.sold.per.day`) %>%
+    select(fid, district.region.code, district.region.name, sales = `3b.no.goats.sold.per.day`) %>%
   mutate(sp = "Goat"))
 
 # total reported sheep and goat sales per day of market
@@ -424,8 +503,6 @@ SR_sales_per_day <- ggplot(sales %>% filter(sp=="All"))+
   # facet_wrap(~sp)
   theme_bw()
 
-SR_sales_per_day
-
 sales_per_day <- ggplot(sales %>% filter(sp %in% c("Sheep", "Goat")))+
   geom_histogram(aes(x=sales,col=sp, fill = sp), binwidth = 25, alpha = 0.5, position = position_dodge(), boundary = 0)+
   scale_x_continuous(breaks = seq(0,400,50), labels = seq(0,400,50))+
@@ -437,7 +514,6 @@ sales_per_day <- ggplot(sales %>% filter(sp %in% c("Sheep", "Goat")))+
   # facet_wrap(~sp)
   theme_bw()
 
-sales_per_day
 
 shgt_scatter <- ggplot(mrkta_clean, aes(x = `3a.no.sheep.sold.per.day`, 
                                        y = `3b.no.goats.sold.per.day` ))+
@@ -446,10 +522,61 @@ shgt_scatter <- ggplot(mrkta_clean, aes(x = `3a.no.sheep.sold.per.day`,
        y = "Goat sales per day")+
   theme_bw()
 
-shgt_scatter
+sales_arr <- ggarrange(SR_sales_per_day,
+sales_per_day,
+shgt_scatter, ncol = 1)
 
 ```
 <br>
+<br>
+
+### Reported total sales of sheep and goats per day at surveyed markets: BY REGION
+
+```{r regional_sales, echo = F, fig.width = 4, fig.height = 4}
+SR_sales_per_day_rg <- ggplot(sales %>% filter(sp=="All"))+
+  geom_histogram(aes(x=sales), binwidth = 25, alpha = 0.5, col = "black", boundary = 0)+
+  scale_x_continuous(breaks = seq(0,650,50), labels = seq(0,650,50))+
+  labs(x = "All Small Ruminant Sales per Day", 
+       y = "Count",
+       main = "All Small Ruminant Sales per Day")+
+  facet_wrap(~`district.region.name`)+
+  theme_bw()+
+  theme(axis.text.x = element_text(angle = -45, vjust=0, hjust=0))
+
+
+sales_per_day_rg <- ggplot(sales %>% filter(sp %in% c("Sheep", "Goat")))+
+  geom_histogram(aes(x=sales,col=sp, fill = sp), binwidth = 25, alpha = 0.5, position = position_dodge(), boundary = 0)+
+  scale_x_continuous(breaks = seq(0,400,50), labels = seq(0,400,50))+
+  labs(x = "Sheep & Goat Sales per Day", 
+       y = "Count",
+       fill = "Species", 
+       col = "Species",
+       main = "Sheep and Goat Sales per Day")+
+  # facet_wrap(~sp)
+  facet_wrap(~`district.region.name`)+
+  theme_bw()+
+    theme(axis.text.x = element_text(angle = -45, vjust=0, hjust=0))
+
+
+shgt_scatter_rg <- ggplot(mrkta_clean, aes(x = `3a.no.sheep.sold.per.day`, 
+                                       y = `3b.no.goats.sold.per.day` ))+
+  geom_point()+
+  labs(x = "Sheep sales per day",
+       y = "Goat sales per day")+
+  facet_wrap(~`district.region.name`)+
+  theme_bw()
+
+ggarrange(SR_sales_per_day_rg,
+sales_per_day_rg,
+shgt_scatter_rg, ncol = 1)
+
+```
+
+
+
+
+
+
 
 *Small Ruminant Sales interpretation*
 - ....
@@ -466,15 +593,20 @@ mrkta_clean %>%
     proportion = n/nrow(mrkta_clean)) %>% 
   select(`4.seasonal.variation.in.trade`, YN, n, proportion) %>%
   kable()
+```
 
+
+For those which state seasonal variation what details are provided?
+- *Translate the below*
+```{r seasonal_trade_ans, echo = F, warning = F}
 # translate this: 
-mrkta_clean %>% select(`4.seasonal.variation.in.trade`, `4.if.yes.describe`) %>% head()
+mrkta_clean %>% select(`4.seasonal.variation.in.trade`, `4.if.yes.describe`) %>% head() %>% kable()
 ```
 
 ### What does the market A data look like for locations brought from and to?
 
 ```{r buysell_location, echo = F, warning=F}
-colnames(mrkta_clean)
+# colnames(mrkta_clean)
 
 buysell_locations <- mrkta_clean %>%
   select(fid, country, district.region.code, district.region.name, ward.code, ward.name, village, market.name, 

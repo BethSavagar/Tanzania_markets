@@ -24,7 +24,8 @@ library(knitr)
 # load tanzania data for market c general info and activities surveys
 mrktc_generalinfo <- read_csv(here("tanzania_data/mrktc_generalinfo_tanzania.csv"))
 lkpmrkt_type <- read_csv(here("ecopprmarketscsvs/mrktc_lkpmrkt_type.csv"))
-
+## LOOKUPS ##
+mrkta_lkpregion <- read_csv(here("ecopprmarketscsvs/mrkta_lkpregion.csv"))
 
 ```
 
@@ -52,6 +53,9 @@ mrktc_clean <- mrktc_generalinfo %>%
     `gps.coordinates.of.the.market`,
     `unique.row.identifier.uuid.`
     ) %>%
+  left_join(mrkta_lkpregion %>% select(Code,"district.region.name" = "Description"),
+            by = c(`district.region.code` = "Code")
+  ) %>%
   # clean text variables:
   mutate(
     "market.name" = tolower(`market.name`), # lowercase
@@ -85,7 +89,7 @@ mrktc_details <- mrktc_clean %>%
 survey_count <- mrktc_details %>% group_by(market.name) %>% count()
 kable(survey_count %>% arrange(market.name) %>% head(n=20))
 # number of markets with <20 surveys conducted 
-# survey_count %>% filter(n<20) %>% View()
+# survey_count %>% filter(n<20) %>% kable()
 # survey_count %>% filter(n<20) %>% nrow()
 
 ggplot(survey_count, aes(x=n))+
@@ -104,16 +108,32 @@ ggplot(survey_count, aes(x=n))+
 
 # for each unique village-market name combination how many surveys were conducted:
 
-mrktc_details %>% 
+vilmrkt_srvy <- mrktc_details %>% 
   group_by(village,market.name) %>% 
   count() %>% 
   # View() %>% 
   # group_by(village) %>% 
   # count() %>% 
   arrange(village) %>%
-  ungroup() %>%
+  ungroup() 
+
+vilmrkt_srvy %>%
   slice_head(n=20) %>%
   kable()
+
+# write.csv(vilmrkt_srvy, file = "vilmrkt_srvy.csv", row.names = F)
+
+
+
+wdvilmrkt_srvy <- mrktc_details %>% 
+  group_by(ward.code,village,market.name) %>% 
+  count() %>% 
+  # View() %>% 
+  # group_by(village) %>% 
+  # count() %>% 
+  arrange(village) %>%
+  ungroup() 
+
 
 ```
 
@@ -160,4 +180,16 @@ ggplot(mrktc_mrktvisits, aes(factor(number.markets.visited), group = trader, fil
 # mrktc_clean %>% select(`trade.pattern`) %>% na.omit() %>% View()
 
 
+mrktc_mrktvisits_region <- mrktc_clean %>%
+  select("district.region.name", "other.market.visited", "number.markets.visited","trader") %>%
+  mutate(number.markets.visited = ifelse(`other.market.visited`==0, 0,`number.markets.visited`),
+         # trader = ifelse(trader==1,"yes", ifelse(trader==0,"no",NA))
+         )
+
+ggplot(mrktc_mrktvisits_region, aes(factor(number.markets.visited), group = trader, fill= factor(trader)))+
+  geom_bar(stat="count", position = "dodge")+
+  labs(x="number of other markets visited",
+       fill = "trader")+
+  facet_wrap(~`district.region.name`)+
+  theme_bw(base_size = 14)
 ```

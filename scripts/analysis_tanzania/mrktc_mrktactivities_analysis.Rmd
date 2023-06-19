@@ -172,6 +172,8 @@ ggplot(buysell_mnth, aes(x=factor(`12.buy.sell.per.month`), y=n, group = trader,
   theme_bw(base_size = 14) # +
   # theme(axis.text.x = element_text(angle = -20, hjust = 0, vjust = 1))
 
+#### NEED TO ADD REGIONAL ANALYSIS HERE ####
+
 ```
 
 ### For those which answered NA, what activity are they doing at the market?
