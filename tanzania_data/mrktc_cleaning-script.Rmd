@@ -1,0 +1,601 @@
+---
+title: "Tanzania Market Survey A: Descriptive Analysis"
+author: "Beth Savagar"
+date: "2023-02-07"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, include = F}
+library(readr)
+library(tidyverse)
+library(sf)
+library(ggplot2)
+library(here)
+library(knitr)
+library(ggpubr)
+library(RColorBrewer)
+library(readxl)
+
+```
+
+```{r dataload, include = F}
+
+# load tanzania data for market c general info and activities surveys
+mrktc_general <- read_csv(here("tanzania_data/mrktc_generalinfo_tanzania.csv"))
+
+## LOOKUPS ##
+# use market a lookups for ward and region as market c lookups are blank
+mrkta_lkpward <- read_csv(here("ecopprmarketscsvs/mrkta_lkpward.csv"))
+mrkta_lkpregion <- read_csv(here("ecopprmarketscsvs/mrkta_lkpregion.csv"))
+lkpmrkt_type <- read_csv(here("ecopprmarketscsvs/mrktc_lkpmrkt_type.csv"))
+
+```
+
+## Market Survey C Data: First Look
+
+- Market survey C is the buyer-seller questionnaire and it has two components: 
+  (i) general info
+  (ii) market activities
+- There are multiple rows per market (based on the total number of surveys conducted) 
+- 
+
+*From the EcoPPR Field Guide:*
+
+....
+
+<br>
+
+## Market C General Information
+
+```{r mrktc_fields, include = F}
+# mrktc
+
+# Select only the fields of interest (location data, SR sale data)
+
+colnames(mrktc_general)
+
+mrktc_clean <- mrktc_general %>%
+  left_join(mrkta_lkpward %>% select("Code", ward.name = "Description"),
+            by = c(`ward.see.mrkta.lkpward.` = "Code")) %>%
+  left_join(mrkta_lkpregion %>% select(Code,"district.region.name" = "Description"),
+            by = c(`district.region.see.mrkta.lkpregion.` = "Code")) %>%
+  # excl. fields such as: respondent age, gender, detail of disease problems
+  # select fields of interest i.e. trade info: respondent role, number of markets visited, pattern of trading
+  select(
+    fid = `fid.see.mrktc.idtable.`,
+    country = `country.see.mrkta.lkpcountry.`,
+    district.region.code = `district.region.see.mrkta.lkpregion.`,
+    district.region.name,
+    ward.code = `ward.see.mrkta.lkpward.`,
+    ward.name,
+    village,
+    market.name = `name.of.market`,
+    market.type = `type.of.market.see.mrktc.lkpmrkt.type.`,
+    respondent.role,
+    other.market.visited= `13.have.you.visited.other.markets.to.sell.or.buy.sheep.and.goats.in.the.past.one.month.`,
+    number.markets.visited =`number.of.other.markets.you.have.visited.to.sell.or.buy.sheep.and.goats.in.the.past.one.month`,
+    trader = `researcher.is.this.person.a.trader.meaning.they.buy.and.sell.animals.as.a.business.`,
+    trade.pattern = `14.what.is.your.usual.pattern.of.trading.sheep.and.or.goats.`,
+    `gps.coordinates.of.the.market`,
+    `unique.row.identifier.uuid.`
+    ) %>%
+  
+  ##############
+  ## CLEAN ##
+  ##############
+
+  # clean text variables:
+  mutate(
+    "district.region.name" = tolower(`district.region.name`), # all lower case
+    "district.region.name" = gsub("[[:punct:]]", " ", `district.region.name`), # remove punctuation
+    "district.region.name" = trimws(`district.region.name`), #trim leading and trailing spaces
+    "district.region.name" = gsub("\\s+", ".", `district.region.name`)# replace 1+ spaces with "."
+  ) %>%
+  mutate(
+    "ward.name" = tolower(`ward.name`),
+    "ward.name" = gsub("[[:punct:]]", " ", `ward.name`), # remove punctuation
+    "ward.name" = trimws(`ward.name`), #trim leading and trailing spaces
+    "ward.name" = gsub("\\s+", ".", `ward.name`)# replace 1+ spaces with "."
+  ) %>%
+  mutate(
+    "market.name" = tolower(`market.name`), # lowercase
+    "market.name" = gsub("[[:punct:]]", " ", `market.name`), # remove punctuation
+    "market.name" = trimws(`market.name`), #trim leading and trailing spaces
+    "market.name" = gsub("\\s+", ".", `market.name`)# replace 1+ spaces with "."
+  )  %>% 
+  mutate(
+    "village" = tolower(`village`), # lowercase
+    "village" = gsub("[[:punct:]]", " ", `village`), # remove punctuation
+    "village" = trimws(`village`),
+    "village" = gsub("\\s+", ".", `village`)
+  )
+
+colnames(mrktc_clean) %>% kable()
+  
+```
+
+### 2) Check Market & Village Names
+
+- Check the District-Ward-Village-Market data fields
+- Cross reference:
+- DM provided "Livestock Markets" `Livestock Markets.xlsx` file for cross-referencing survey data and original markets database
+- Use Market Survey A as the **master** list for district-ward-village-market & GPS information.
+
+```{r mrktc_names_clean1, echo=F,warning=F}
+# Save MRKTC names data for crossreferencing with mrktA data.
+
+# Tally the number of unique ditrict-ward-village-market entries:
+mrktc_names <- mrktc_clean %>%
+  group_by(
+    district.region.code,
+    district.region.name,
+    ward.code,
+    ward.name,
+    village,
+    market.name
+  ) %>%
+  count()
+ 
+
+# No NAs below -
+mrktc_clean %>% filter(is.na(village))
+mrktc_clean %>% filter(is.na(market.name))
+mrktc_clean %>% filter(is.na(ward.name))
+mrktc_clean %>% filter(is.na(district.region.name))
+
+## SAVE CSVs of CLEAN MARKET & VILLAGE NAMES - for crossreferencing with MRKTA .xlsx
+
+# write.csv(mrktc_names, "mrktc_names_clean1.csv", row.names = F) # stored in tanzania_data file
+# convert to excel spreadsheet for crosschecking: mrktc_names_clean1.xlsx - mrktc_names_sweep1
+
+```
+
+### Cross-Check 1:
+
+*Type of Error/Inconsistency: Spelling mistake or type in Village or Market fields*
+
+Sweep1: 
+- mrktc_names_clean1.xslsx: sheet 'mrktc_names_sweep1' - saved mrktcnames data from above
+- mrktc_names_clean1.xslsx: sheet 'mrkta_crossref2' - cleaned mrkta names data from mrkta_cleaning-script.Rmd
+
+- Order both mrkta and mrktc data by ward code for this sweep.
+- using mrkta_crossref2 as the reference list compare to mrktc names and identify rows with clear and obvious spelling or typo errors. e.g. where all columns have match mrkta data but with letters missing or misspellings. 
+-  review all unmatched names (village, market) for clear and obvious spelling errors with mrkta_crossref2 as the reference list. make these spelling corrections.
+
+
+```{r mrktc_names_sweep1, echo=F,warning=F}
+# Load mrktc_names_sweep1_R with original names data and spellchecked/cross-referenced names data following sweep 1.
+
+mrktc_names_clean1 <- read_excel("~/OneDrive - Royal Veterinary College/4. tanzania_markets_2/tanzania_data/mrktc_names_clean1.xlsx", 
+    sheet = "mrktc_names_sweep1_R")
+
+## JOIN: join the cleaned names data to the full mrktc dataframe 
+# Corrected names: village.1 and market.name.1
+
+# NB the left join throws up an issue with the tilda on "n" in inyonga so correct that here: 
+mrktc_clean <- mrktc_clean %>%
+  mutate(
+    market.name = stringi::stri_trans_general(market.name, "Latin-ASCII"),
+    village = stringi::stri_trans_general(village, "Latin-ASCII")
+  )
+
+# Update mrktc_clean data
+mrktc_clean1 <- left_join(
+  mrktc_clean,
+  mrktc_names_clean1,
+  by = c(
+    "district.region.code",
+    "district.region.name",
+    "ward.code",
+    "ward.name",
+    "village",
+    "market.name"
+  )
+) %>%
+  # if NA in new cols then populate with original data
+  mutate(village.1 = ifelse(is.na(village.1), village, village.1),
+         market.name.1 = ifelse(is.na(market.name.1), market.name, market.name.1))
+
+colnames(mrktc_clean1) %>% kable()
+
+## SAVE updated mrktc_names_clean2 for further cleaning.
+
+mrktc_names_post1 <- mrktc_clean1 %>%
+  group_by(
+    district.region.code,
+    district.region.name,
+    ward.code,
+    ward.name,
+    village.1,
+    market.name.1
+  ) %>%
+  count()
+ 
+# a few issues thrown up by excel - R conversion (inyonga with tilde on n and mkonywa with market.name "004", fix manually). 
+
+# mrktc_name_post1 saved for next round of crossreferencing:
+# write.csv(mrktc_names_post1, file = "mrktc_names_clean2.csv", row.names = F)
+# Add to mrktc_names_clean1.xlsx, sheet: mrktc_names_clean2
+# See sheets: mrktc_names_sweep2-4 for cleaning steps
+
+```
+
+### Cross-Check 2:
+
+*Type of Error/Inconsistency: Incorrect Ward, Village or Market data entered*
+
+Sweep2-4: 
+- Order both mrkta and mrktc data by: ward (2), village (3), market (4) for sweeps
+- Order mrktc data secondarily by the number of entries 
+- Review the data for:
+  - Entries with the same ward but different village/market data
+  - Same village but different ward/market data
+  - Same market name but different ward/village data
+- "Correct" data using mrkta_crossref2 as the reference list and accounting for the number of entries with each combination of District-Ward-Village-Market names (i.e. correct to version with the most entries)
+- Conduct spotchecks for specific cases (e.g. Mbuyuni market, Sibwesa-Minyagala markets) 
+- Add corrections with the suffix ".2" then join to the original data (below)
+
+
+```{r mrktc_sweep2, echo=F,warning=F}
+# Load mrktc_names_clean2 following sweeps 2-4:
+mrktc_names_clean2 <- read_excel("~/OneDrive - Royal Veterinary College/4. tanzania_markets_2/tanzania_data/mrktc_names_clean1.xlsx", 
+    sheet = "mrktc_names_sweep4_R")
+
+## JOIN: join the cleaned names data to the full mrktc dataframe 
+# Corrected names: ward.code.2, ward.name.2, village.2 and market.name.2
+# Full DATAFRAME:
+mrktc_clean2 <- left_join(
+  mrktc_clean1, # join to general info Market C data (clean1) with spelling and typos corrected
+  mrktc_names_clean2, # with sweep2-4 crossreferenced as per excel sheet post sweep-4
+  by = c(
+    "district.region.code",
+    "district.region.name",
+    "ward.code",
+    "ward.name",
+    "village.1",
+    "market.name.1"
+  )
+) %>%
+  # if NA in new cols then populate with clean1 data
+  mutate(
+    ward.code.2 = ifelse(is.na(ward.code.2), ward.code, ward.code.2),
+     ward.name.2 = ifelse(is.na(ward.name.2), ward.name, ward.name.2),
+    village.2 = ifelse(is.na(village.2), village.1, village.2),
+    market.name.2 = ifelse(is.na(market.name.2), market.name.1, market.name.2))
+
+colnames(mrktc_clean1) %>% kable()
+
+# mrktc_clean2 contains original data and cleaned location data:  ward.code.2, ward.name.2, village.2 and market.name.2
+
+
+## NAMES dataframe
+# create a new mrktc_names dataframe which contains names & location data following sweeps 2-4.
+mrktc_names_post2 <- mrktc_clean2 %>%
+  group_by(
+    district.region.code,
+    district.region.name,
+    ward.code.2,
+    ward.name.2,
+    village.2,
+    market.name.2
+  ) %>%
+  count() %>%
+  ungroup()
+
+# mrktc_names_post2 contains all names data with cleaned location data (".2" suffix)
+# write.csv(mrktc_names_post2, file = "mrktc_names_clean3.csv", row.names = F)
+
+```
+
+### Cross-Check 3:
+
+*Type of Error/Inconsistency: Entry missing from Market A reference list*
+
+- mrktc_names_clean1.xlsx, sheet: mrktc_names_clean3 contains ALL cleaned names data following sweeps 1-4
+- mrktc_names_clean1.xlsx, sheet: mrktc_notA_names_sweep5 contains mrktC markets missing from mrktA data (see below)
+
+Sweep 5: 
+- Using mrktc_names_post2 / mrktc_clean2 dataframe, check for markets contained within the mrktC data which are missing from the mrktA data
+- Check entries found in mrktc_names_post2 which are not in mrkta_names_crossref2 reference list
+- For missing entries conduct manual checks for potential matches in the mrktA data:
+  - E.g. filter both dataframes for missing entries which share a ward/village/market name with existing mrktA entries
+  - Plot both mrktC (missing) and mrktA (possible match) datapoints on Tanzania map - filtered to associated region
+  - If the datapoints are overlapping or "close" update the mrktC entry to match the mrktA data
+  - See mrktc_notA_names_sweep5 for map-checks
+  
+```{r mrktA-C_crossref, echo=F,warning=F}
+
+## LOAD DATA:
+# load mrktc_names_post2 (clean3) following sweeps 1-4
+# load mrkta_names_crossref2, cleaned market A names data
+mrkta_names_x2 <- read_csv("tanzania_data/mrkta_names_crossref2.csv") 
+mrktc_names_post2 <- read_csv("tanzania_data/mrktc_names_clean3.csv")
+
+
+## SEMI-JOIN
+# Align colnames for Semi-Join:
+
+# mrktA_crossref2
+colnames(mrkta_names_x2)
+mrkta_names_x2 <- mrkta_names_x2 %>%
+  rename(market.name = market.name.corrected)
+
+# mrktC_names_post2
+mrktc_names_post2 <- mrktc_names_post2 %>%
+  select(-n) %>%
+  rename(ward.code = ward.code.2,
+         ward.name = ward.name.2,
+         village = village.2,
+         market.name = market.name.2)
+
+## JOIN: 
+# return all rows in mrktc_names_post2 that are found in mrkta_names_x2 using semi_join
+AandC <- semi_join(mrktc_names_post2, mrkta_names_x2,
+                   by = c(
+                     "district.region.code", 
+                     "district.region.name",
+                     "ward.code",
+                     "ward.name",
+                     "village",
+                     "market.name"
+                   ))
+
+
+CnotA <- anti_join(mrktc_names_post2, mrkta_names_x2)
+# write.csv(CnotA, file = "CnotA_crossref.csv", row.names = F)
+
+AnotC <- anti_join(mrkta_names_x2, mrktc_names_post2)
+# write.csv(AnotC, file = "AnotC_crossref.csv", row.names = F)
+
+
+## Add both CnotA and AnotC to mtkc_names_clean1.xlsx: mrktc_notA_names_sweep5 spreadsheet for manual checking
+```
+*Sweep 5*
+- mrktc_names_clean1.xlsx: mrktc_notA_names_sweep5 
+- Contains CnotA (in C data but missing from A data) and AnotC (in A data but not C data)
+- For missing entries conduct manual checks for potential matches in the mrktA data:
+  - E.g. filter both dataframes for missing entries which share a ward/village/market name with existing mrktA entries
+  - Plot both mrktC (missing) and mrktA (possible match) datapoints on Tanzania map - filtered to associated region
+  - If the datapoints are overlapping or "close" update the mrktC entry to match the mrktA data
+  - Map checks are stored in mrktc_notA_names_sweep5 
+    - mrktc: katavi-sibwesa
+    - mrktc: dutwa-igaganulwa
+    - mrktc: mwanza-ngudu
+    - mrktc: mbeya-madibila
+
+
+```{r CnotAmaps}
+
+## For markets in mrktC list but NOT FOUND in mrktA list (AnotC) check point locations on map:
+
+# Load Tanzania Shapefile:
+tanzania_shp <- st_read(here("shapefiles/Districts and TC as 2020.shp"))
+
+
+## MRKTA Mapping:
+
+# mrkta_gps_CLEAN contains gps locations of mrktA data, with cleaned location names (matching crossref2). 
+mrkta_gps_CLEAN <- read_csv("tanzania_data/mrkta_gps_tanzania_CLEAN.csv") 
+# mrkta mapdata
+mrkta_mapdata <- mrkta_gps_CLEAN %>% 
+  mutate(lat = str_split(`gps.coordinates.of.the.market`, "\\s", simplify = TRUE)[, 1],
+         long = str_split(`gps.coordinates.of.the.market`, "\\s", simplify = TRUE)[, 2])
+# for now ignore rows which have na in lat or long:
+mrkta_sf <- st_as_sf(mrkta_mapdata %>% filter(!is.na(lat), !is.na(long)), coords = c("long","lat"),  crs = 4326)
+
+# All markets:
+mrkta_map <- ggplot() +
+  geom_sf(data = tanzania_shp, fill = NA) +
+  geom_sf(data = mrkta_sf, aes(), size = 1) +
+  facet_wrap(~district.region.name)+
+  coord_sf()+
+  theme_bw()
+
+
+# MRKTC mapping:
+# use mrktc_clean2 - contains all data with cleaned names following sweeps 1-4
+mrktc_mapdata <- mrktc_clean2 %>% 
+  mutate(lat = str_split(`gps.coordinates.of.the.market`, "\\s", simplify = TRUE)[, 1],
+         long = str_split(`gps.coordinates.of.the.market`, "\\s", simplify = TRUE)[, 2]) %>%
+  mutate(vilmrkt = paste(village.2, market.name.2, sep = "."))
+
+# for now ignore rows which have na in lat or long:
+mrktc_sf <- st_as_sf(mrktc_mapdata %>% filter(!is.na(lat), !is.na(long)), coords = c("long","lat"),  crs = 4326)
+
+
+# spot check specific markets: 
+# i. katavi-majimoto
+# ii. katavi-sibwesa-minyagala, katavi-sibwesa-sibwesa (compared with A: katavi-chamalendi-sibwesa)
+# iii. simiyu-dutwa-igaganulwa-dutwa (compared with A: simiyu-dutwa-igaganulwa-igaganulwa)
+# iv. mbeya-madibila and mbeya-madibila-chalisuka (in C and A)
+# v. mwanza-ndgudu-kakola-ngudu (compared with A: mwanza-ndgudu-kakola-kakola)
+ggplot() +
+  geom_sf(data = tanzania_shp %>%
+            filter(
+             Region_Nam == "Katavi"
+            ), fill = NA) +
+  
+  geom_sf(data = mrktc_sf %>% filter(
+    #ward.name == "majimoto"
+    ward.name.2 == "majimoto"
+    ), aes(col = vilmrkt), size = 1)+
+  geom_sf(data = mrkta_sf %>% filter(
+    ward.name == "majimoto"
+    ), aes(shape = market.name.corrected), col = "black", size = 1) +
+  facet_wrap(~district.region.name)+
+  coord_sf()+
+  theme_bw()
+# 
+# ggplot() +
+#   geom_sf(data = tanzania_shp %>%
+#             filter(
+#              Region_Nam == "Mtwara"
+#             ), fill = NA) +
+#   geom_sf(data = mrktc_sf %>% filter(
+#     ward.name == "mnavira"  
+#     ),aes(col = village.2), size = 1) +
+#   # 
+#   # geom_sf(data = mrktc_sf %>% filter(
+#   #   #ward.name == "majimoto"
+#   #   village.2 == "mbuyuni"
+#   #   ), aes(col = vilmrkt), size = 1)+
+#   
+#   geom_sf(data = mrkta_sf %>% filter(
+#   #   # district.region.name == "mtwara" |
+#   #   # village == "mbuyuni",
+#     ward.name == "mnavira"
+#     ), aes(shape = village), size = 1) +
+#   facet_wrap(~district.region.name)+
+#   coord_sf()+
+#   theme_bw()
+
+```
+## SWEEP 3 OUTPUT:
+- Use mrktc_notA_sweep5_R to update names and full mrktc data
+- Redo CnotA check to see which names remain unmatched... 
+
+```{r mrktc_sweep3, echo=F,warning=F}
+
+# mrktc_names_clean3 contains only mrktc entries missing from mrktA
+mrktc_names_clean3 <- read_excel("~/OneDrive - Royal Veterinary College/4. tanzania_markets_2/tanzania_data/mrktc_names_clean1.xlsx", 
+    sheet = "mrktc_notA_sweep5_R")
+
+# Update mrktc_clean data
+mrktc_clean3 <- left_join(
+  mrktc_clean2, # join to general info Market C data with spelling and typos corrected
+  mrktc_names_clean3, # with sweep2-4 crossreferenced as per excel sheet post sweep-4
+  by = c(
+    "district.region.code",
+    "district.region.name",
+    "ward.code.2",
+    "ward.name.2",
+    "village.2",
+    "market.name.2"
+  )
+) %>%
+  # if NA in new cols then populate with original data
+  mutate(
+    ward.code.3A = ifelse(is.na(ward.code.3A), ward.code.2, ward.code.3A),
+     ward.name.3A = ifelse(is.na(ward.name.3A), ward.name.2, ward.name.3A),
+    village.3A = ifelse(is.na(village.3A), village.2, village.3A),
+    market.name.3A = ifelse(is.na(market.name.3A), market.name.2, market.name.3A),
+    corrected.3A = ifelse(is.na(corrected.3A), "previous.check", corrected.3A))
+
+colnames(mrktc_clean3) %>% kable()
+
+# mrktc_clean3 contains cleaned mrktc data with crossreferenced mapping agianst mrkta: "village.3A", "market.name.3A" etc
+
+# create a new mrktc_names dataframe which contains names & location data following sweeps 2-5.
+#mrktc_names_post3 contains all names
+mrktc_names_post3 <- mrktc_clean3 %>%
+  group_by(
+    district.region.code,
+    district.region.name,
+    ward.code.3A,
+    ward.name.3A,
+    village.3A,
+    market.name.3A
+  ) %>%
+  count() %>%
+  ungroup()
+
+# mrktc_clean3 contains all data with cleaned location data crossreferenced against mrtka map locations (".3A" suffix)
+# check for entries not in mrktA data again... 
+mrktc_names_post3check <- mrktc_names_post3 %>%
+  select(-n) %>%
+  rename(ward.code = ward.code.3A,
+         ward.name = ward.name.3A,
+         village = village.3A,
+         market.name = market.name.3A)
+
+CnotA.2 <- anti_join(mrktc_names_post3check, mrkta_names_x2) # mtwara data ONLY
+
+AnotC.2 <- anti_join(mrkta_names_x2, mrktc_names_post3check) # majimoto.b = fine, chamalendi = fine, mtwara data points = confusing.
+
+# Check ndomoni --> two different datapoints
+ggplot() +
+  geom_sf(data = tanzania_shp %>%
+            filter(Region_Nam == "Mtwara"),
+          fill = NA) +
+  
+  geom_sf(
+    data = mrktc_sf %>% filter(ward.name.2 == "ndomoni"),
+    aes(col = village.2),
+    size = 1
+  ) +
+  geom_sf(
+    data = mrkta_sf %>% filter(district.region.name == "mtwara",
+                               ward.name == "ndomoni"),
+    shape = 3,
+    size = 1
+  ) +
+  facet_wrap( ~ district.region.name) +
+  coord_sf() +
+  theme_bw()
+
+## Check mtwara-mwengemtapika mrktA - extremely different locations
+ggplot() +
+  geom_sf(data = tanzania_shp %>%
+            filter(Region_Nam == "Mtwara"),
+          fill = NA) +
+  
+  geom_sf(
+    data = mrkta_sf %>% filter(ward.name %in% c("mwengemtapika","mwenge.mtapika")),
+    size = 1
+  ) +
+  facet_wrap( ~ district.region.name) +
+  coord_sf() +
+  theme_bw()
+
+
+# SAVE DATA
+write.csv(mrktc_names_post3, file = "mrktc_names_clean3-1.csv", row.names = F)
+write.csv(mrktc_clean3, file = "mrktc_info_clean3-1.csv", row.names = F)
+```
+
+
+## Cleaning Checks / Summary 
+```{r mrktc_clean_analysis}
+
+colnames(mrktc_clean3)
+colnames(mrktc_names_post3)
+
+# After 4 rounds of cleaning, there are 86 unique combinations of District-Ward-Village-Market name entries.
+nrow(mrktc_names_post3)
+# tally the number of surveys per unique combination:
+mrktc_clean3 %>% group_by(district.region.name, ward.name.3A, village.3A, market.name.3A) %>% count() %>% filter(n<20)
+
+# There are 11 districts
+mrktc_names_post3 %>% group_by(district.region.name) %>% count()
+
+# There are 81 unique district-ward combinations
+# Of these unique district-wards, there is 1 ward (mamba) associated with 2 different districts.
+# Note that there are two (different) wards called "mamba"
+mrktc_names_post3 %>% distinct(district.region.name, ward.name.3A)
+mrktc_names_post3 %>% distinct(district.region.name, ward.name.3A) %>% group_by(ward.name.3A) %>% count() %>% filter(n>1)
+# mamba is associated with two different districts & village names
+mrktc_names_post3 %>% filter(ward.name.3A == "mamba")
+# See mamba plot below to determine whether these are two distinct markets
+
+# Most wards are associated with 1 market, check any wards that are associated with more than 1 market
+mrktc_names_post3 %>% group_by(ward.name.3A) %>% count()
+# most wards associated with just 1 market, check that those associated with >1 are truly unique
+multiwards <- mrktc_names_post3 %>% group_by(ward.name.3A) %>% count() %>% filter(n>1) %>% pull(ward.name.3A)
+
+mrktc_multiwards <- mrktc_names_post3 %>% filter(ward.name.3A %in% multiwards)
+# save multiwards and map for next round of crossreferencing: 
+
+# write.csv(mrktc_multiwards, file = "mrktc_names-multiwards_clean3.csv", row.names = F)
+
+
+
+```
+
+
+

@@ -1,0 +1,85 @@
+district.region.name,ward.name,village,market.name,,,,,
+dodoma,bahi,bahi.sokoni,bahi,,,,,
+dodoma,kigwe,kigwe,kigwe,,,,,
+dodoma,babayu,kongogo,kongogo,,Dodoma,Bahi,Babayu,Kongogo
+dodoma,lamaiti,lamaiti,lamaiti,,,,,
+dodoma,makanda,makanda,makanda,,,,,
+dodoma,zanica,mayamaya,mayamaya,,,,,
+dodoma,ibihwa,mnkola,mnkola,village = ibihwa,,,,
+dodoma,dodoma.mjini,mpunguzi,mpunguzi,,,,,
+dodoma,msisi,msisi,msisi,village = Tinai OR Kisima cha Ndege,,,,
+dodoma,mundemu,mundemu,mundemu,,Dodoma,Bahi,Mundemu,Mundemu
+dodoma,ibugule,nkhome,nkhome,,,,,
+dodoma,nondwa,nondwa,nondwa,,Dodoma,Bahi,Nondwa,Nondwa
+iringa,ihowanza,ihowanza,ihowanza,,,,,
+iringa,itunundu,kimande,kimande,,,,,
+katavi,itenka,itenka.a,itenka,,,,,
+katavi,kibaoni,kibaoni,kibaoni,,Katavi,Mpimbwe ,KIBAONI,Kibaoni
+katavi,mamba,kilda.kona,kilda.kona,,Katavi,Mpimbwe ,MAMBA ,Kanindi 
+katavi,inyonga,kinyonga,inyonga,,,,,
+katavi,majimoto,kitupa,majimoto,,Katavi,Mpimbwe ,MAJIMOTO,Kitupa 
+katavi,sibwesa,minyagala,minyagala,,,,,
+katavi,chamalendi,sibwesa,sibwesa,,,,,
+katavi,usevya,usevya,usevya,,Katavi,Mpimbwe ,USEVYA ,Usevya
+mbeya,madibila,chalisuka,madibira,,,,,
+mbeya,mtanila,igangwe,shauri.moyo,,,,,
+mbeya,rujewa,ihanga,rujewa,,,,,
+mbeya,imalilosongwe,imalilosongwe,imalilosongwe,,Mbeya,Mbarali,Imalilo/songwe,Mwanavala
+mbeya,mamba,mamba,shinyanga,,,,,
+mbeya,mapogoro,mapogoro,mapogoro,,,,,
+mbeya,igava,muungano,muungano,,,,,
+mbeya,utengule.usangu,utengule.usangu,utengule.usangu,,Mbeya,Mbarali,Utengule/usangu,Magurula
+morogoro,rudewa.gongoni,gongoni,gongoni,,,,,
+morogoro,namawala,idandu,kikurukutu,,,,,
+morogoro,mbuga,iputi,iputi,,Morogoro,Ulanga,Mbuga,IPUTI
+morogoro,itete,itete,itete,,,,,
+morogoro,salamiti,kiswago,salamiti,,,,,
+morogoro,lukande,lukande,lukande,,Morogoro,Ulanga,Lukande,LUKANDE
+morogoro,milola,mavimba,mavimba,,Morogoro,Ulanga,Milola,MAVIMBA
+morogoro,minepa,mbuyuni,mbuyuni,,,,,
+morogoro,mofu,miyomboni,mofu,,,,,
+morogoro,mzia,mziha,mziha,,,,,
+morogoro,iragua,namhanga,mbenja,,Morogoro,Ulanga,Iragua,NAMHANGA
+morogoro,sagamaganga,sagamaganga,sagamaganga,,,,,
+morogoro,tanga,tanga,tanga,,,,,
+mtwara,mwena,chibwini,mwena,,,,,
+mtwara,chikolopola,chikolopola,chikolopola,,Mtwara,Masasi,Chikolopola,Chikoropola
+mtwara,chiungutwa,chiungutwa,chiungutwa,,Mtwara,Masasi,Chiungutwa,Chiungutwa
+mtwara,kitangari,kitangari,kitangari,,,,,
+mtwara,chiwale,kivukoni,chiwale,,,,,
+mtwara,luchingu,luchingu,luchingu,,,,,
+mtwara,lukuledi,lukuledi,lukuledi,,,,,
+mtwara,mtandi,madeco,madeco,,,,,
+mtwara,mkundi,majembe,mkundi,,Mtwara,Masasi,Mkundi,Majembe
+mtwara,mtonya,majengo,mtonya,,,,,
+mtwara,sululu,maneme,nanyumbu,,Mtwara,Masasi,Sululu,Mkapunda
+mtwara,mchauru,mchauru,mchauru,,"Mtwara	Masasi	Mchauru	Mirewe",,,
+mtwara,mnavira,mnavira,mnavira,,Mtwara,Masasi,Mnavira,Mnavira
+mtwara,mtandi,mtandi.b,mtandi,,,,,
+mtwara,mnavira,muhesi,muhesi,,,,,
+mtwara,mumbaka,mumbaka,mumbaka,,Mtwara,Masasi,Mumbaka,Mlundelunde
+mtwara,mwenge.mtapika,mwenge,mwenge,,Mtwara,Masasi,Mwengemtapika,Mbonde
+mtwara,nangoo,mwongozo,nangoo,,Mtwara,Masasi,Nangoo,Nangoo
+mtwara,namalenga,nagaga,namalenga,,,,,
+mtwara,makong.onda,nakarara,makong.onda,,Mtwara,Masasi,Makong'onda,Mkwaya
+mtwara,mwengemtapika,nangaya,nangaya,,,,,
+mtwara,nangwala,nangwala,nangwala,,,,,
+mtwara,nanjota,nanjota,nanjota,,,,,
+mtwara,ndomoni,ndomoni,ndomoni,,,,,
+mtwara,tulindane,tupendane,tulindane,,,,,
+mtwara,silabu,upanga,upanga,,,,,
+mwanza,ngudu,kakola,dutwa,,,,,
+mwanza,misasi,manawa,misasi,,,,,
+mwanza,kabila,ndagalu,kabila,,,,,
+njombe,wangingombe,wanging.ombe,wanging.ombe,,,,,
+rukwa,namanyele,isunta,isunta,,,,,
+rukwa,kipeta,kilyamatundu,kilyamatundu,,,,,
+rukwa,muze,muze,muze,,,,,
+rukwa,kate,ntalamila,ntalamila,,,,,
+simiyu,dutwa,igaganulwa,dutwa,,Simiyu,bariadi,dutwa ,igaganulwa
+simiyu,kidinda,kidinda,kidinda,,,,,
+simiyu,lalago,lalago,lalago,,,,,
+simiyu,mwamapalala,mwamapalala,mwamapalala,,,,,
+simiyu,mwasamba,mwasamba,mwasamba,,,,,
+songwe,idiwili,idiwili,idiwili,,,,,
+songwe,mkomba,ntungwa,mbao,,,,,

@@ -1,0 +1,265 @@
+---
+title: "Tanzania Market Survey A: Descriptive Analysis"
+author: "Beth Savagar"
+date: "2023-02-07"
+output:
+  pdf_document: default
+  html_document: default
+---
+
+```{r setup, include=FALSE}
+knitr::opts_chunk$set(echo = TRUE)
+```
+
+```{r libraries, include = F}
+library(readr)
+library(tidyverse)
+library(sf)
+library(ggplot2)
+library(here)
+library(knitr)
+library(ggpubr)
+library(RColorBrewer)
+
+```
+
+```{r load-data, include = F}
+
+# read in tanzania market data (tanzania_data file contains original ecopprmarketscsvs filtered to Tanzania data only)
+
+mrkta <- read_csv(here("tanzania_data/mrkta_generalinfo_tanzania.csv"))
+
+## LOOKUPS ##
+mrkta_lkpregion <- read_csv(here("ecopprmarketscsvs/mrkta_lkpregion.csv"))
+mrkta_lkpward <- read_csv(here("ecopprmarketscsvs/mrkta_lkpward.csv"))
+
+```
+
+## Market Survey A Data: First Look
+
+- Market survey A is the key informant interview. 
+- There is one row (survey) per market. 
+- The survey mostly contains contextual information that is not useful for my analysis
+- Market Survey A should be used as a GPS reference for all markets in market survey C
+- Also the number of small ruminants bought and sold at each market. 
+
+*From the EcoPPR Field Guide:*
+
+- Key informant interview with the market manager or other key person who is knowledgeable about the market, focusing on the general characteristics of the market. (1 survey per market)
+- At each market, the field team will identify and arrange to meet with the market manager/person in-charge to introduce the project and obtain permission to collect data, and then conduct a short interview
+<br>
+
+### 1) Refine the Market A survey data to fields of interest:
+
+
+```{r mrkta_fields, echo = F, warning = F}
+
+# Fields contained in market A data:
+colnames(mrkta) %>% kable()
+
+## cleaning of colnames
+  # rename_with(tolower) %>% # all lowercase
+  # rename_with(~gsub("[[:punct:]]", " ", .x)) %>% # replace all punctuation with space " " 
+  # rename_with(~gsub("\\s+", ".", .x)) %>% # replace any space with single "."
+
+
+# Select only the fields of interest (location data, SR sale data)
+mrkta_clean <- mrkta %>%
+  left_join(mrkta_lkpward %>% select("Code", ward.name = "Description"),
+            by = c(`ward.see.mrkta.lkpward.` = "Code")) %>%
+  left_join(mrkta_lkpregion %>% select(Code,"district.region.name" = "Description"),
+            by = c(`district.region.see.mrkta.lkpregion.` = "Code")) %>%
+  select(
+    fid = `fid.see.mrkta.idtable.`,
+    date,
+    country = `country.see.mrkta.lkpcountry.`,
+    district.region.code = `district.region.see.mrkta.lkpregion.`,
+    district.region.name,
+    ward.code = `ward.see.mrkta.lkpward.`,
+    ward.name,
+    village,
+    market.name = `name.of.market`,
+    market.type = `type.of.market.see.mrkta.lkpmrkt.type.`,
+    name.of.respondent,
+    `1.location.brought.from` = `1.location.sold.from`, # misleading variable name from cleaning script
+    `2.location.taken.to.`,
+    `3a.no.sheep.sold.per.day`,
+    `3b.no.goats.sold.per.day`,
+    `4.seasonal.variation.in.trade`,
+    `4.if.yes.describe`,
+    `gps.coordinates.of.the.market`,
+    `unique.row.identifier.uuid.` 
+  ) 
+```
+
+### 2) Check Market & Village Names
+
+- Clean the District-Ward-Village-Market data fields
+- Cross reference:
+  - DM provided "Livestock Markets" `Livestock Markets.xlsx` file for cross-referencing survey data and original markets database
+- [20.09.23] See `mrkta_names_crossref` for a manual cross-reference with `Livestock Markets.xlsx`
+  - Crossreferencing showed very little overlap between the market and village names from Market Survey A and the "Livestock Markets" list provided by DM
+- Use Market Survey A as the **master** list for district-ward-village-market & GPS information.
+
+```{r mrkta_cleannames, echo=F,warning=F}
+# CLEAN NAME DATA: district/region, ward, market, village
+
+mrkta_clean <- 
+  mrkta_clean %>%
+  mutate(
+    "district.region.name" = tolower(`district.region.name`), # all lower case
+    "district.region.name" = gsub("[[:punct:]]", " ", `district.region.name`), # remove punctuation
+    "district.region.name" = trimws(`district.region.name`), #trim leading and trailing spaces
+    "district.region.name" = gsub("\\s+", ".", `district.region.name`)# replace 1+ spaces with "."
+  ) %>%
+  mutate(
+    "ward.name" = tolower(`ward.name`),
+    "ward.name" = gsub("[[:punct:]]", " ", `ward.name`), # remove punctuation
+    "ward.name" = trimws(`ward.name`), #trim leading and trailing spaces
+    "ward.name" = gsub("\\s+", ".", `ward.name`)# replace 1+ spaces with "."
+  ) %>%
+  mutate(
+    "market.name" = tolower(`market.name`), # lowercase
+    "market.name" = gsub("[[:punct:]]", " ", `market.name`), # remove punctuation
+    "market.name" = trimws(`market.name`), #trim leading and trailing spaces
+    "market.name" = gsub("\\s+", ".", `market.name`)# replace 1+ spaces with "."
+  )  %>% 
+  mutate(
+    "village" = tolower(`village`), # lowercase
+    "village" = gsub("[[:punct:]]", " ", `village`), # remove punctuation
+    "village" = trimws(`village`),
+    "village" = gsub("\\s+", ".", `village`)
+  )
+  
+
+# head(mrkta_clean, n = 1) %>% kable()
+colnames(mrkta_clean) %>% kable()
+
+
+## SAVE CSVs of CLEAN MARKET & VILLAGE NAMES - for crossreferencing with DM .xlsx
+
+mrktnames <- mrkta_clean %>% 
+  distinct(district.region.code, district.region.name, ward.code, ward.name, village, market.name)
+# 
+# write.csv(mrktnames, "mrkta_names_clean.csv", row.names = F)
+```
+
+
+3) Identify any duplicate entries
+
+- Most of the `r num_mrkt` markets are unique... 
+- The market names Dutwa and Majimoto each appear twice.
+- The market **Dutwa** appears to be an error in the market.name field. Whilst the market name is the same, village, ward name & code, district code and name of respondent is different for the two entries. Suggest correcting the market name to `village`: `kakola` and `igaganulwa`
+- The market **Majimoto** appears to be a duplicate (2 surveys conducted at the same market, 1 month apart). The market name, village, ward name & code, district code and name of respondent are the same for both entries. The question answers are different.
+  - Rename market to "majimoto.a", "majimoto.b"
+  
+- See market map below with duplicate locations pinpointed.
+
+
+```{r duplicate_markets, include = F}
+# Is the market name variable unique, does it correspond to market id variable?
+mrkta_clean %>% distinct(fid) # every entry has unique id
+mrkta_clean %>% group_by(market.name) %>% count() # 2 entries have the same market name
+
+# 2 markets appeared twice: Dutwa and Majimoto
+# Filter dataframe to understand whether these are duplicates or an entry error
+duplicate.markets <- mrkta_clean %>% group_by(market.name) %>% count() %>% filter(n>1) %>% pull(market.name)
+duplicate.entries <- mrkta_clean %>% filter(market.name %in% duplicate.markets)
+
+# Dutwa appears to be a common name for two different markets, here replace the market name with the village name (distinct for the two entries)
+
+mrkta_clean <- mrkta_clean %>%
+  mutate(market.name.corrected = ifelse(market.name == "dutwa" & village == "kakola", "kakola", 
+                                        ifelse(market.name == "dutwa" & village == "igaganulwa", "igaganulwa", market.name)),
+         market.name.corrected = ifelse(market.name == "majimoto" & fid == "1150713", "majimoto.a", 
+                                        ifelse(market.name == "majimoto" & fid == "1167758", "majimoto.b", market.name.corrected))) 
+
+# table of duplicate entries
+kable(mrkta_clean %>% 
+        filter(market.name %in% c("dutwa", "majimoto")) %>%
+        select(date, "district.code"=district.region.code, "district.name"=district.region.name, ward.code, ward.name, village, market.name, name.of.respondent, market.name.corrected))
+
+
+## SAVE CSVs of CLEAN MARKET & VILLAGE NAMES - for crossreferencing with DM .xlsx
+
+mrktnames <- mrkta_clean %>% 
+  distinct(district.region.code, district.region.name, ward.code, ward.name, village, market.name.corrected)
+# 
+# write.csv(mrktnames, "mrkta_names_clean.csv", row.names = F)
+```
+
+
+### 4) Is the market name always the same as the village name?
+- In most cases - yes - the market name is the village name
+- Below is a list of markets which have names distinct to the village name (29 examples)
+- In all cases it seems that the market and village names are distinct i.e. not due to typos.
+
+
+```{r market_village, echo = F, warning = F}
+
+# Print entries where market and village names are different: 
+mrkt_village_distinct <- mrkta_clean %>% 
+  select(village, market.name.corrected) %>%
+  filter(mrkta_clean$village != mrkta_clean$market.name.corrected)
+
+# market name and village are sometimes different, sometimes typos
+knitr::kable(mrkt_village_distinct %>% arrange(village))
+
+```
+
+```{r savedata, echo=F,warning=F}
+
+
+# write.csv(mrkta_clean, file = "mrkta_generalinfo_tanzania_CLEAN.csv", row.names = F)
+
+
+mrkta_locationdata <- mrkta_clean %>% select(
+  country,
+  district.region.code,
+  district.region.name,
+  ward.code,
+  ward.name,
+  village,
+  market.name.corrected,
+  gps.coordinates.of.the.market
+)
+
+# write.csv(mrkta_locationdata, file = "mrkta_gps_tanzania_CLEAN.csv", row.names = F)
+
+```
+
+### Map of location of duplicate markets
+
+- For markets identified as duplicates verify whether they are the same or different locations 
+- Majimoto market surveys spatially close together (consistent with being 1 market)
+- Dutwa market surveys spaced further apart (consistent with being 2 distinct markets)
+
+
+```{r duplicates_map}
+
+## MAPPING MARKETS ##
+
+# Load Tanzania Shapefile:
+tanzania_shp <- st_read(here("shapefiles/Districts and TC as 2020.shp"))
+
+## Check the duplicate market locations
+
+duplicates_mapdata <- duplicate.entries %>% 
+  mutate(lat = str_split(`gps.coordinates.of.the.market`, "\\s", simplify = TRUE)[, 1],
+         long = str_split(`gps.coordinates.of.the.market`, "\\s", simplify = TRUE)[, 2])
+
+duplicates_sf <- st_as_sf(duplicates_mapdata, coords = c("long","lat"),  crs = 4326)
+
+duplicates_map <- ggplot() +
+  geom_sf(data = tanzania_shp, fill = NA) +
+  geom_sf(data = duplicates_sf, aes(shape = as.factor(`district.region.name`), col = as.factor(`market.name`)), size = 2) +
+  labs(col = "Market Name",
+       shape = "Region")+
+  # scale_color_brewer(palette = "Set3")+
+  coord_sf()+
+  theme_bw()
+
+duplicates_map
+
+```
+
